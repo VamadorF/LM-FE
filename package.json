@@ -2,6 +2,7 @@
   "name": "leadmanager",
   "version": "0.1.0",
   "private": true,
+  "description": "Marketplace de referidos B2B: empresas publican ofertas con comisión y conectores postulan contactos calificados desde agenda y listas.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

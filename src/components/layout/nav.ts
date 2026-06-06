@@ -1,10 +1,15 @@
 import {
   LayoutDashboard,
+  Megaphone,
+  Inbox,
   Users,
-  KanbanSquare,
-  Handshake,
-  UserCog,
+  Wallet,
   BarChart3,
+  Trophy,
+  UserRound,
+  Compass,
+  Contact,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 
@@ -14,11 +19,21 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
-export const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/leads", label: "Leads", icon: Users },
-  { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
-  { href: "/referidores", label: "Referidores", icon: Handshake },
-  { href: "/agentes", label: "Agentes", icon: UserCog },
-  { href: "/reportes", label: "Reportes", icon: BarChart3 },
+export const EMPRESA_NAV: NavItem[] = [
+  { href: "/empresa", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/empresa/ofertas", label: "Mis ofertas", icon: Megaphone },
+  { href: "/empresa/conectores", label: "Conectores", icon: Users },
+  { href: "/empresa/comisiones", label: "Comisiones", icon: Wallet },
+  { href: "/empresa/reportes", label: "Reportes", icon: BarChart3 },
+];
+
+export const LEAD_NAV: NavItem[] = [
+  { href: "/lead", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/lead/agenda", label: "Agenda", icon: Contact },
+  { href: "/lead/listas", label: "Listas", icon: ListChecks },
+  { href: "/lead/ofertas", label: "Explorar ofertas", icon: Compass },
+  { href: "/lead/postulaciones", label: "Mis postulaciones", icon: Inbox },
+  { href: "/lead/comisiones", label: "Comisiones", icon: Wallet },
+  { href: "/lead/ranking", label: "Ranking", icon: Trophy },
+  { href: "/lead/perfil", label: "Mi perfil", icon: UserRound },
 ];

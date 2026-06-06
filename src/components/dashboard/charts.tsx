@@ -14,8 +14,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { origenLabel, type OrigenLead } from "@/lib/types";
-import { formatCLP, formatCompactCLP } from "@/lib/format";
+import { formatCLP, formatCompactCLP, formatNumber } from "@/lib/format";
 
 const PALETTE = [
   "#6366f1",
@@ -44,14 +43,16 @@ export function EmbudoChart({ data }: { data: { label: string; cantidad: number 
     <ResponsiveContainer width="100%" height={260}>
       <BarChart data={data} layout="vertical" margin={{ left: 8, right: 16 }}>
         <XAxis type="number" {...axisProps} allowDecimals={false} />
-        <YAxis type="category" dataKey="label" width={90} {...axisProps} />
+        <YAxis type="category" dataKey="label" width={100} {...axisProps} />
         <Tooltip
           cursor={{ fill: "rgba(99,102,241,0.08)" }}
           content={({ active, payload }) =>
             active && payload?.length ? (
               <TooltipBox>
                 <p className="font-medium text-foreground">{payload[0].payload.label}</p>
-                <p className="text-muted-foreground">{payload[0].value} leads</p>
+                <p className="text-muted-foreground">
+                  {formatNumber(Number(payload[0].value))} postulaciones
+                </p>
               </TooltipBox>
             ) : null
           }
@@ -66,11 +67,7 @@ export function EmbudoChart({ data }: { data: { label: string; cantidad: number 
   );
 }
 
-export function IngresosChart({
-  data,
-}: {
-  data: { mes: string; ingresos: number }[];
-}) {
+export function IngresosChart({ data }: { data: { mes: string; ingresos: number }[] }) {
   return (
     <ResponsiveContainer width="100%" height={260}>
       <AreaChart data={data} margin={{ left: 4, right: 8, top: 8 }}>
@@ -104,14 +101,14 @@ export function IngresosChart({
   );
 }
 
-export function OrigenChart({ data }: { data: { origen: string; cantidad: number }[] }) {
+export function DonaChart({ data }: { data: { label: string; cantidad: number }[] }) {
   return (
     <ResponsiveContainer width="100%" height={260}>
       <PieChart>
         <Pie
           data={data}
           dataKey="cantidad"
-          nameKey="origen"
+          nameKey="label"
           innerRadius={55}
           outerRadius={90}
           paddingAngle={2}
@@ -121,20 +118,14 @@ export function OrigenChart({ data }: { data: { origen: string; cantidad: number
           ))}
         </Pie>
         <Legend
-          formatter={(value) => (
-            <span className="text-xs text-muted-foreground">
-              {origenLabel(value as OrigenLead)}
-            </span>
-          )}
+          formatter={(value) => <span className="text-xs text-muted-foreground">{value}</span>}
         />
         <Tooltip
           content={({ active, payload }) =>
             active && payload?.length ? (
               <TooltipBox>
-                <p className="font-medium text-foreground">
-                  {origenLabel(payload[0].payload.origen as OrigenLead)}
-                </p>
-                <p className="text-muted-foreground">{payload[0].value} leads</p>
+                <p className="font-medium text-foreground">{payload[0].payload.label}</p>
+                <p className="text-muted-foreground">{formatNumber(Number(payload[0].value))}</p>
               </TooltipBox>
             ) : null
           }
@@ -144,7 +135,7 @@ export function OrigenChart({ data }: { data: { origen: string; cantidad: number
   );
 }
 
-export function ValorEtapaChart({
+export function BarrasMontoChart({
   data,
 }: {
   data: { label: string; valor: number }[];
@@ -152,7 +143,7 @@ export function ValorEtapaChart({
   return (
     <ResponsiveContainer width="100%" height={280}>
       <BarChart data={data} margin={{ left: 4, right: 8, top: 8 }}>
-        <XAxis dataKey="label" {...axisProps} interval={0} angle={-20} textAnchor="end" height={60} />
+        <XAxis dataKey="label" {...axisProps} interval={0} angle={-20} textAnchor="end" height={70} />
         <YAxis {...axisProps} width={48} tickFormatter={(v) => formatCompactCLP(Number(v))} />
         <Tooltip
           cursor={{ fill: "rgba(99,102,241,0.08)" }}
@@ -170,45 +161,6 @@ export function ValorEtapaChart({
             <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
           ))}
         </Bar>
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
-
-export function ComparativaAgentesChart({
-  data,
-}: {
-  data: { nombre: string; ganado: number; pipeline: number }[];
-}) {
-  return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data} margin={{ left: 4, right: 8, top: 8 }}>
-        <XAxis dataKey="nombre" {...axisProps} interval={0} angle={-15} textAnchor="end" height={60} />
-        <YAxis {...axisProps} width={48} tickFormatter={(v) => formatCompactCLP(Number(v))} />
-        <Tooltip
-          cursor={{ fill: "rgba(99,102,241,0.08)" }}
-          content={({ active, payload, label }) =>
-            active && payload?.length ? (
-              <TooltipBox>
-                <p className="font-medium text-foreground">{label}</p>
-                {payload.map((p) => (
-                  <p key={String(p.dataKey)} className="text-muted-foreground">
-                    {p.dataKey === "ganado" ? "Ganado" : "Pipeline"}: {formatCLP(Number(p.value))}
-                  </p>
-                ))}
-              </TooltipBox>
-            ) : null
-          }
-        />
-        <Legend
-          formatter={(value) => (
-            <span className="text-xs text-muted-foreground">
-              {value === "ganado" ? "Ganado" : "Pipeline"}
-            </span>
-          )}
-        />
-        <Bar dataKey="ganado" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={28} />
-        <Bar dataKey="pipeline" stackId="a" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={28} />
       </BarChart>
     </ResponsiveContainer>
   );

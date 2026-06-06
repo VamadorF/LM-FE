@@ -14,7 +14,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "LeadManager",
-  description: "Plataforma de gestion de leads, referidores y comisiones",
+  description: "Marketplace de referidos: empresas publican ofertas y conectores postulan contactos",
+  icons: {
+    icon: "/logo/Fondo Lead Manager.png",
+    apple: "/logo/Fondo Lead Manager.png",
+  },
 };
 
 export default function RootLayout({

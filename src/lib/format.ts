@@ -76,6 +76,10 @@ export function formatRelative(iso: string): string {
   return formatDate(iso);
 }
 
+export function fechaFuturaISO(dias: number): string {
+  return new Date(Date.now() + dias * 86_400_000).toISOString();
+}
+
 export function initials(name: string): string {
   return name
     .split(" ")

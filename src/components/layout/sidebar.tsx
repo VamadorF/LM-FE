@@ -2,29 +2,32 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS } from "./nav";
+import { EMPRESA_NAV, LEAD_NAV } from "./nav";
+import { RoleSwitcher } from "./role-switcher";
+import { Logo } from "./logo";
 
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const vistaEmpresa = pathname.startsWith("/empresa");
+  const items = vistaEmpresa ? EMPRESA_NAV : LEAD_NAV;
+
+  const isActive = (href: string) =>
+    pathname === href || (href !== "/empresa" && href !== "/lead" && pathname.startsWith(href + "/"));
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className="flex h-16 items-center gap-2.5 px-5">
-        <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Sparkles className="size-5" />
-        </span>
-        <div className="leading-tight">
-          <p className="text-sm font-bold text-white">LeadManager</p>
-          <p className="text-[11px] text-sidebar-foreground/60">Gestion comercial</p>
-        </div>
-      </div>
+      <Link
+        href={vistaEmpresa ? "/empresa" : "/lead"}
+        className="flex h-16 items-center px-4"
+        onClick={onNavigate}
+      >
+        <Logo height={40} />
+      </Link>
 
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {NAV_ITEMS.map((item) => {
-          const active =
-            pathname === item.href || pathname.startsWith(item.href + "/");
+        {items.map((item) => {
+          const active = isActive(item.href);
           const Icon = item.icon;
           return (
             <Link
@@ -45,16 +48,8 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
 
-      <div className="border-t border-sidebar-border p-4">
-        <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent/40 px-3 py-2.5">
-          <span className="flex size-9 items-center justify-center rounded-full bg-primary/90 text-xs font-semibold text-white">
-            PC
-          </span>
-          <div className="min-w-0 leading-tight">
-            <p className="truncate text-sm font-medium text-white">Paula Carvajal</p>
-            <p className="truncate text-[11px] text-sidebar-foreground/60">Lider de equipo</p>
-          </div>
-        </div>
+      <div className="border-t border-sidebar-border p-3">
+        <RoleSwitcher variant="dark" />
       </div>
     </div>
   );

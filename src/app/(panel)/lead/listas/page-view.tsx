@@ -15,6 +15,7 @@ import { CardsSkeleton } from "@/components/ui/skeleton";
 import { ListaForm } from "@/components/listas/lista-form";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FolderItem } from "@/components/contactos/folder-item";
+import { AgendaListasTip } from "@/components/onboarding/agenda-listas-tip";
 
 export default function LeadListasPage() {
   const router = useRouter();
@@ -44,6 +45,8 @@ export default function LeadListasPage() {
         </Button>
       </PageHeader>
 
+      <AgendaListasTip />
+
       {!hydrated ? (
         <CardsSkeleton />
       ) : misListas.length === 0 ? (
@@ -71,7 +74,7 @@ export default function LeadListasPage() {
                   subtitle={`${formatNumber(conteo.get(lista.id) ?? 0)} contactos`}
                   onOpen={() => router.push(`/lead/listas/${lista.id}`)}
                 />
-                <div className="absolute right-0 top-0 z-10 flex gap-0.5 p-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="absolute right-0 top-0 z-10 flex gap-0.5 p-1">
                   <Button
                     size="icon"
                     variant="secondary"

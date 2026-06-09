@@ -122,43 +122,33 @@ export default function MisPostulacionesPage() {
             className="m-4"
           />
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Contacto</TableHead>
-                <TableHead>Oferta</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Comision</TableHead>
-                <TableHead>Actualizado</TableHead>
-                <TableHead className="text-right">Accion</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="space-y-2 p-4 md:hidden">
               {result.items.map((p) => {
                 const oferta = ofertaById.get(p.ofertaId);
                 return (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <p className="font-medium text-foreground">{p.contacto.nombre}</p>
-                      <p className="text-xs text-muted-foreground">{p.contacto.empresa}</p>
-                    </TableCell>
-                    <TableCell className="max-w-[220px]">
-                      {oferta?.titulo ?? "—"}
-                    </TableCell>
-                    <TableCell>
+                  <div key={p.id} className="rounded-lg border bg-card p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground">{p.contacto.nombre}</p>
+                        <p className="text-xs text-muted-foreground">{p.contacto.empresa}</p>
+                        <p className="mt-1 text-sm text-foreground">{oferta?.titulo ?? "—"}</p>
+                      </div>
                       <EstadoPostulacionBadge estado={p.estado} />
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {p.estado === "completada" ? (
-                        <span className="font-semibold text-emerald-700">{formatCLP(p.comision ?? 0)}</span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatRelative(p.fechaActualizacion)}
-                    </TableCell>
-                    <TableCell className="text-right">
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+                      <div className="text-sm">
+                        {p.estado === "completada" ? (
+                          <span className="font-semibold text-emerald-700">
+                            {formatCLP(p.comision ?? 0)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {formatRelative(p.fechaActualizacion)}
+                        </p>
+                      </div>
                       {p.estado === "completada" ? (
                         <Button
                           size="sm"
@@ -171,12 +161,69 @@ export default function MisPostulacionesPage() {
                       ) : (
                         <span className="text-xs text-muted-foreground">En proceso</span>
                       )}
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </div>
                 );
               })}
-            </TableBody>
-          </Table>
+            </div>
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Contacto</TableHead>
+                    <TableHead>Oferta</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="text-right">Comision</TableHead>
+                    <TableHead>Actualizado</TableHead>
+                    <TableHead className="text-right">Accion</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {result.items.map((p) => {
+                    const oferta = ofertaById.get(p.ofertaId);
+                    return (
+                      <TableRow key={p.id}>
+                        <TableCell>
+                          <p className="font-medium text-foreground">{p.contacto.nombre}</p>
+                          <p className="text-xs text-muted-foreground">{p.contacto.empresa}</p>
+                        </TableCell>
+                        <TableCell className="max-w-[220px]">{oferta?.titulo ?? "—"}</TableCell>
+                        <TableCell>
+                          <EstadoPostulacionBadge estado={p.estado} />
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {p.estado === "completada" ? (
+                            <span className="font-semibold text-emerald-700">
+                              {formatCLP(p.comision ?? 0)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {formatRelative(p.fechaActualizacion)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {p.estado === "completada" ? (
+                            <Button
+                              size="sm"
+                              variant={yaCalifico(p) ? "outline" : "default"}
+                              disabled={yaCalifico(p)}
+                              onClick={() => setCalificar(p)}
+                            >
+                              <Star /> {yaCalifico(p) ? "Calificada" : "Calificar"}
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">En proceso</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
 
         {hydrated && filtradas.length > PAGE_SIZE ? (

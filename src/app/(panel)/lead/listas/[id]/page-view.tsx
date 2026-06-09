@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Pencil, UserMinus, Search, Users, ListChecks } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, UserMinus, Search, Users, ListChecks } from "lucide-react";
 import { useStore, useHydrated } from "@/lib/store";
 import { useDebounced } from "@/lib/hooks";
 import { contactosDeLista } from "@/lib/selectors";
@@ -37,6 +37,7 @@ export default function ListaDetallePage({ listaId }: { listaId: string }) {
   const contactos = useStore((s) => s.contactos);
   const listas = useStore((s) => s.listas);
   const quitarContactoDeLista = useStore((s) => s.quitarContactoDeLista);
+  const eliminarLista = useStore((s) => s.eliminarLista);
 
   const miembros = useMemo(
     () => contactosDeLista(listas, contactos, listaId),
@@ -48,6 +49,7 @@ export default function ListaDetallePage({ listaId }: { listaId: string }) {
   const [agregar, setAgregar] = useState(false);
   const [editandoLista, setEditandoLista] = useState(false);
   const [quitando, setQuitando] = useState<Contacto | null>(null);
+  const [eliminandoLista, setEliminandoLista] = useState(false);
 
   const resultado = useMemo(
     () =>
@@ -100,6 +102,13 @@ export default function ListaDetallePage({ listaId }: { listaId: string }) {
             <>
               <Button variant="outline" onClick={() => setEditandoLista(true)}>
                 <Pencil /> Editar lista
+              </Button>
+              <Button
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setEliminandoLista(true)}
+              >
+                <Trash2 /> Eliminar carpeta
               </Button>
               <Button onClick={() => setAgregar(true)}>
                 <Plus /> Agregar contactos
@@ -202,6 +211,18 @@ export default function ListaDetallePage({ listaId }: { listaId: string }) {
           description={`Se quitara a "${quitando.nombre}" de esta lista. El contacto seguira en tu agenda.`}
           confirmLabel="Quitar"
           onConfirm={() => quitarContactoDeLista(listaId, quitando.id)}
+        />
+      ) : null}
+      {eliminandoLista && lista ? (
+        <ConfirmDialog
+          open={eliminandoLista}
+          onOpenChange={setEliminandoLista}
+          title="Eliminar carpeta"
+          description={`Se eliminara la carpeta "${lista.nombre}". Tus contactos seguiran en la agenda. Esta accion no se puede deshacer.`}
+          onConfirm={() => {
+            eliminarLista(listaId);
+            router.push("/lead/listas");
+          }}
         />
       ) : null}
     </>

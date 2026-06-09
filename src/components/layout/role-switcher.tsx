@@ -84,7 +84,12 @@ export function RoleSwitcher({ variant = "dark" }: { variant?: "dark" | "light" 
       </button>
 
       {open ? (
-        <div className="absolute left-0 right-0 z-50 mt-2 min-w-[260px] rounded-xl border bg-card p-2 text-foreground shadow-xl">
+        <div
+          className={cn(
+            "absolute left-0 right-0 z-50 mt-2 rounded-xl border bg-card p-2 text-foreground shadow-xl",
+            dark ? "max-w-[calc(100vw-2rem)] min-w-0" : "min-w-[260px]",
+          )}
+        >
           <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Ver como
           </p>

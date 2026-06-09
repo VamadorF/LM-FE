@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Contact, Search, Plus } from "lucide-react";
+import { Contact, Search, Plus, ChevronDown, ChevronUp, Eye } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { useLeadActivo } from "@/lib/identidad";
 import { useDebounced } from "@/lib/hooks";
@@ -78,6 +78,7 @@ export function PostularDialog({
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
   const [searchRaw, setSearchRaw] = useState("");
   const [mensaje, setMensaje] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
   const search = useDebounced(searchRaw, 200);
 
   const listaActiva = path !== "root" && path !== "agenda" ? misListas.find((l) => l.id === path) : null;
@@ -89,6 +90,7 @@ export function PostularDialog({
       setSeleccion(new Set());
       setSearchRaw("");
       setMensaje("");
+      setPreviewOpen(false);
     }
     onOpenChange(next);
   };
@@ -179,6 +181,19 @@ export function PostularDialog({
 
   const sinContactos = misContactos.length === 0;
   const selectedListaId = path === "agenda" ? null : path === "root" ? undefined : path;
+
+  const contactosSeleccionados = useMemo(
+    () => contactosBase.filter((c) => seleccion.has(c.id)),
+    [contactosBase, seleccion],
+  );
+
+  const mensajePreview = useMemo(() => {
+    if (mensaje.trim()) return mensaje.trim();
+    if (listaActiva?.descripcion) {
+      return `Contactos de mi lista '${listaActiva.nombre}' (${listaActiva.categoria}): ${listaActiva.descripcion}`;
+    }
+    return "(Sin mensaje personalizado)";
+  }, [mensaje, listaActiva]);
 
   return (
     <Dialog open={open} onOpenChange={cerrar} className="max-w-3xl">
@@ -299,6 +314,48 @@ export function PostularDialog({
             La empresa vera este mensaje junto con los datos de cada contacto. Si postulas desde una
             lista y dejas esto vacio, usaremos la descripcion de la carpeta.
           </p>
+
+          {seleccion.size > 0 ? (
+            <div className="rounded-lg border bg-secondary/30">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-medium text-foreground"
+                onClick={() => setPreviewOpen((o) => !o)}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Eye className="size-4 text-primary" />
+                  Vista previa de la propuesta
+                </span>
+                {previewOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+              </button>
+              {previewOpen ? (
+                <div className="space-y-3 border-t px-3 py-3 text-sm">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Mensaje
+                    </p>
+                    <p className="mt-1 text-foreground">{mensajePreview}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Contactos ({contactosSeleccionados.length})
+                    </p>
+                    <ul className="mt-1 space-y-1">
+                      {contactosSeleccionados.map((c) => (
+                        <li key={c.id} className="text-muted-foreground">
+                          {c.nombre}
+                          {c.empresa ? ` — ${c.empresa}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Comision estimada por cierre: <span className="font-medium">{comisionLabel(oferta)}</span>
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

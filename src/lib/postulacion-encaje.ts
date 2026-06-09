@@ -78,3 +78,23 @@ export function puntosEncaje(oferta: Oferta, contacto: ContactoPostulado): Punto
 
   return puntos;
 }
+
+const PESO_ENCAJE: Record<EncajeEstado, number> = { ok: 1, parcial: 0.5, no: 0 };
+
+export function scoreEncaje(puntos: PuntoEncaje[]): number {
+  if (puntos.length === 0) return 0;
+  const sum = puntos.reduce((acc, p) => acc + PESO_ENCAJE[p.estado], 0);
+  return Math.round((sum / puntos.length) * 100);
+}
+
+export function scoreEncajeLabel(score: number): "Alto" | "Medio" | "Bajo" {
+  if (score >= 75) return "Alto";
+  if (score >= 40) return "Medio";
+  return "Bajo";
+}
+
+export function scoreEncajeTone(score: number): string {
+  if (score >= 75) return "bg-emerald-100 text-emerald-700 border-emerald-200";
+  if (score >= 40) return "bg-amber-100 text-amber-700 border-amber-200";
+  return "bg-slate-100 text-slate-600 border-slate-200";
+}

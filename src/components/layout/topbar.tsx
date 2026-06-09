@@ -11,7 +11,15 @@ function titulo(pathname: string): string {
   return match?.label ?? "LeadManager";
 }
 
-export function Topbar({ onMenu }: { onMenu: () => void }) {
+export function Topbar({
+  onMenu,
+  onCloseMenu,
+  mobileOpen = false,
+}: {
+  onMenu: () => void;
+  onCloseMenu?: () => void;
+  mobileOpen?: boolean;
+}) {
   const pathname = usePathname();
   const hoy = new Intl.DateTimeFormat("es-CL", {
     weekday: "long",
@@ -22,9 +30,11 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-card/80 px-4 backdrop-blur sm:px-6">
       <button
-        onClick={onMenu}
+        onClick={mobileOpen ? onCloseMenu : onMenu}
         className="rounded-md p-2 text-muted-foreground hover:bg-secondary lg:hidden"
-        aria-label="Abrir menu"
+        aria-label={mobileOpen ? "Cerrar menu" : "Abrir menu"}
+        aria-expanded={mobileOpen}
+        aria-controls="mobile-sidebar"
       >
         <Menu className="size-5" />
       </button>

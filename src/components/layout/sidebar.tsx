@@ -57,10 +57,8 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function Sidebar() {
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-sidebar-border lg:block">
-      <div className="fixed inset-y-0 left-0 w-64">
-        <SidebarContent />
-      </div>
+    <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:w-64 lg:flex-col border-r border-sidebar-border">
+      <SidebarContent />
     </aside>
   );
 }

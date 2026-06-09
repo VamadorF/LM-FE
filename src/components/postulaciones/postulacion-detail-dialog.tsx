@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Building2,
   Mail,
@@ -18,9 +18,15 @@ import {
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { Oferta, Postulacion } from "@/lib/types";
-import { ESTADOS_POSTULACION, comisionLabel } from "@/lib/types";
-import { formatCLP, formatDate } from "@/lib/format";
-import { puntosEncaje, type EncajeEstado } from "@/lib/postulacion-encaje";
+import { ESTADOS_POSTULACION, calcularComision, comisionLabel } from "@/lib/types";
+import { formatCLP, formatDate, formatPostulaciones } from "@/lib/format";
+import {
+  puntosEncaje,
+  scoreEncaje,
+  scoreEncajeLabel,
+  scoreEncajeTone,
+  type EncajeEstado,
+} from "@/lib/postulacion-encaje";
 import { resumenLead } from "@/lib/selectors";
 import {
   Dialog,
@@ -45,11 +51,13 @@ export function PostulacionDetailDialog({
   onOpenChange,
   postulacion: postulacionProp,
   oferta,
+  onTransaccionCompletada,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   postulacion: Postulacion | null;
   oferta: Oferta;
+  onTransaccionCompletada?: (postulacionId: string) => void;
 }) {
   const cambiarEstado = useStore((s) => s.cambiarEstado);
   const completarTransaccion = useStore((s) => s.completarTransaccion);
@@ -66,6 +74,21 @@ export function PostulacionDetailDialog({
 
   const [valor, setValor] = useState("");
   const [ratingOpen, setRatingOpen] = useState(false);
+  const [bannerExito, setBannerExito] = useState<string | null>(null);
+  const transaccionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setBannerExito(null);
+      setValor("");
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (postulacion?.estado === "completada" && bannerExito && transaccionRef.current) {
+      transaccionRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [postulacion?.estado, bannerExito]);
 
   if (!postulacion) return null;
 
@@ -75,7 +98,20 @@ export function PostulacionDetailDialog({
 
   const c = postulacion.contacto;
   const encaje = puntosEncaje(oferta, c);
+  const encajeScore = scoreEncaje(encaje);
   const statsLead = lead ? resumenLead(lead.id, postulaciones, ratings) : null;
+
+  const valorNegocio = Number(valor) || oferta.valorTicketEstimado;
+  const comisionPreview = calcularComision(oferta, valorNegocio);
+
+  const onCompletar = () => {
+    const v = Number(valor) || oferta.valorTicketEstimado;
+    completarTransaccion(postulacion.id, v);
+    const comision = calcularComision(oferta, v);
+    setBannerExito(`Transaccion completada — Comision: ${formatCLP(comision)}`);
+    setValor("");
+    onTransaccionCompletada?.(postulacion.id);
+  };
 
   return (
     <>
@@ -88,6 +124,13 @@ export function PostulacionDetailDialog({
         </DialogHeader>
 
         <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1 scrollbar-thin">
+          {bannerExito ? (
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-800">
+              <CheckCircle2 className="size-4 shrink-0" />
+              {bannerExito}
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap items-center justify-between gap-2">
             <EstadoPostulacionBadge estado={postulacion.estado} />
             <span className="text-xs text-muted-foreground">
@@ -118,9 +161,12 @@ export function PostulacionDetailDialog({
           ) : null}
 
           <Section title="Encaje con tu oferta" icon={Target}>
-            <p className="mb-2 text-xs text-muted-foreground">
-              Buscas: {oferta.criterios}
-            </p>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <Badge className={cn("text-xs", scoreEncajeTone(encajeScore))}>
+                Encaje {encajeScore}% — {scoreEncajeLabel(encajeScore)}
+              </Badge>
+              <p className="text-xs text-muted-foreground">Buscas: {oferta.criterios}</p>
+            </div>
             <ul className="space-y-1.5">
               {encaje.map((punto) => (
                 <li key={punto.criterio} className="flex items-start gap-2 text-sm">
@@ -166,7 +212,7 @@ export function PostulacionDetailDialog({
                       <Stars value={statsLead.rating} size="sm" />
                       <span>
                         {statsLead.rating.toFixed(1)} · {statsLead.completadas} cierres ·{" "}
-                        {statsLead.postulaciones} postulaciones
+                        {formatPostulaciones(statsLead.postulaciones)}
                       </span>
                     </div>
                   ) : null}
@@ -176,7 +222,7 @@ export function PostulacionDetailDialog({
           ) : null}
 
           {postulacion.estado === "completada" ? (
-            <div className="rounded-lg bg-emerald-50 p-3">
+            <div ref={transaccionRef} className="rounded-lg bg-emerald-50 p-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Valor transaccion</span>
                 <span className="font-medium">{formatCLP(postulacion.valorTransaccion ?? 0)}</span>
@@ -204,7 +250,10 @@ export function PostulacionDetailDialog({
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Completar transaccion (comision {comisionLabel(oferta)})</Label>
+                <Label>Completar transaccion</Label>
+                <p className="text-xs text-muted-foreground">
+                  Tasa de comision: {comisionLabel(oferta)}
+                </p>
                 <div className="flex gap-2">
                   <Input
                     type="number"
@@ -214,16 +263,11 @@ export function PostulacionDetailDialog({
                     onChange={(e) => setValor(e.target.value)}
                     placeholder={`Valor del negocio (ej. ${oferta.valorTicketEstimado})`}
                   />
-                  <Button
-                    onClick={() => {
-                      const v = Number(valor) || oferta.valorTicketEstimado;
-                      completarTransaccion(postulacion.id, v);
-                      setValor("");
-                    }}
-                  >
-                    Completar
-                  </Button>
+                  <Button onClick={onCompletar}>Completar</Button>
                 </div>
+                <p className="text-sm text-emerald-700">
+                  Comision estimada: <span className="font-semibold">{formatCLP(comisionPreview)}</span>
+                </p>
               </div>
             </div>
           )}

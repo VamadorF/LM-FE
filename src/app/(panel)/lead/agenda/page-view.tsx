@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import { ContactoForm } from "@/components/contactos/contacto-form";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { AgendaListasTip } from "@/components/onboarding/agenda-listas-tip";
 
 export default function LeadAgendaPage() {
   const hydrated = useHydrated();
@@ -63,6 +64,8 @@ export default function LeadAgendaPage() {
           <Plus /> Nuevo contacto
         </Button>
       </PageHeader>
+
+      <AgendaListasTip />
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

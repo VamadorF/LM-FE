@@ -153,15 +153,52 @@ export interface EstadoPostulacionMeta {
   label: string;
   tone: string;
   abierta: boolean;
+  descripcion: string;
 }
 
 export const ESTADOS_POSTULACION: EstadoPostulacionMeta[] = [
-  { value: "postulada", label: "Postulada", tone: "bg-sky-100 text-sky-700 border-sky-200", abierta: true },
-  { value: "en_revision", label: "En revision", tone: "bg-indigo-100 text-indigo-700 border-indigo-200", abierta: true },
-  { value: "seleccionada", label: "Seleccionada", tone: "bg-violet-100 text-violet-700 border-violet-200", abierta: true },
-  { value: "en_negociacion", label: "En negociacion", tone: "bg-amber-100 text-amber-700 border-amber-200", abierta: true },
-  { value: "completada", label: "Completada", tone: "bg-emerald-100 text-emerald-700 border-emerald-200", abierta: false },
-  { value: "rechazada", label: "Rechazada", tone: "bg-rose-100 text-rose-700 border-rose-200", abierta: false },
+  {
+    value: "postulada",
+    label: "Postulada",
+    tone: "bg-sky-100 text-sky-700 border-sky-200",
+    abierta: true,
+    descripcion: "El conector envio este contacto. Aun no has revisado la propuesta.",
+  },
+  {
+    value: "en_revision",
+    label: "En revision",
+    tone: "bg-indigo-100 text-indigo-700 border-indigo-200",
+    abierta: true,
+    descripcion: "Estas evaluando si este contacto calza con tu oferta.",
+  },
+  {
+    value: "seleccionada",
+    label: "Seleccionada",
+    tone: "bg-violet-100 text-violet-700 border-violet-200",
+    abierta: true,
+    descripcion: "Marcaste este contacto como candidato para avanzar.",
+  },
+  {
+    value: "en_negociacion",
+    label: "En negociacion",
+    tone: "bg-amber-100 text-amber-700 border-amber-200",
+    abierta: true,
+    descripcion: "Hay conversacion activa con este contacto o conector.",
+  },
+  {
+    value: "completada",
+    label: "Completada",
+    tone: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    abierta: false,
+    descripcion: "Negocio cerrado. La comision del conector quedo registrada.",
+  },
+  {
+    value: "rechazada",
+    label: "Rechazada",
+    tone: "bg-rose-100 text-rose-700 border-rose-200",
+    abierta: false,
+    descripcion: "Decidiste no avanzar con este contacto.",
+  },
 ];
 
 export const CATEGORIAS = [

@@ -3,6 +3,7 @@
 import { Check, User } from "lucide-react";
 import type { Contacto } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -13,6 +14,23 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import type { ExplorerViewMode } from "./explorer-view-switcher";
+
+const POSTULADO_TIP =
+  "Este contacto ya fue postulado a esta oferta. No puedes enviarlo de nuevo.";
+
+function PostuladoBadge({ compact = false }: { compact?: boolean }) {
+  const badge = (
+    <Badge
+      className={cn(
+        "border-emerald-200 bg-emerald-100 text-emerald-700",
+        compact ? "text-[10px]" : "shrink-0",
+      )}
+    >
+      <Check className="size-3" /> Postulado
+    </Badge>
+  );
+  return <Tooltip content={POSTULADO_TIP}>{badge}</Tooltip>;
+}
 
 function rowClass(postulado: boolean, checked: boolean) {
   if (postulado) return "cursor-not-allowed opacity-60";
@@ -81,9 +99,9 @@ export function ContactosPicker({
                   <TableCell>
                     <span className="font-medium text-foreground">{c.nombre}</span>
                     {postulado ? (
-                      <Badge className="ml-2 border-emerald-200 bg-emerald-100 text-[10px] text-emerald-700">
-                        Postulado
-                      </Badge>
+                      <span className="ml-2">
+                        <PostuladoBadge compact />
+                      </span>
                     ) : null}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{c.empresa || "—"}</TableCell>
@@ -133,11 +151,7 @@ export function ContactosPicker({
                   {c.empresa || c.email}
                 </p>
               </div>
-              {postulado ? (
-                <Badge className="border-emerald-200 bg-emerald-100 text-[10px] text-emerald-700">
-                  <Check className="size-3" /> Postulado
-                </Badge>
-              ) : null}
+              {postulado ? <PostuladoBadge compact /> : null}
             </label>
           );
         })}
@@ -173,11 +187,7 @@ export function ContactosPicker({
                 {c.email}
               </p>
             </div>
-            {postulado ? (
-              <Badge className="shrink-0 border-emerald-200 bg-emerald-100 text-emerald-700">
-                <Check className="size-3" /> Postulado
-              </Badge>
-            ) : null}
+            {postulado ? <PostuladoBadge /> : null}
           </label>
         );
       })}

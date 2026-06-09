@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useIdentidadSync } from "@/lib/identidad";
 import { Sidebar, SidebarContent } from "./sidebar";
@@ -10,8 +10,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useIdentidadSync();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [mobileOpen]);
+
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen overflow-x-clip bg-background">
       <Sidebar />
 
       {mobileOpen ? (
@@ -19,8 +33,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div
             className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
+            aria-hidden
           />
-          <div className="absolute inset-y-0 left-0 w-64">
+          <div id="mobile-sidebar" className="absolute inset-y-0 left-0 w-64 border-r border-sidebar-border shadow-xl">
             <SidebarContent onNavigate={() => setMobileOpen(false)} />
             <button
               onClick={() => setMobileOpen(false)}
@@ -33,8 +48,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar onMenu={() => setMobileOpen(true)} />
+      <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
+        <Topbar mobileOpen={mobileOpen} onMenu={() => setMobileOpen(true)} onCloseMenu={() => setMobileOpen(false)} />
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-7xl space-y-6">{children}</div>
         </main>

@@ -88,3 +88,15 @@ export function initials(name: string): string {
     .map((p) => p[0]?.toUpperCase() ?? "")
     .join("");
 }
+
+export function pluralize(n: number, singular: string, plural: string): string {
+  return n === 1 ? singular : plural;
+}
+
+export function formatPostulaciones(n: number): string {
+  return `${formatNumber(n)} ${pluralize(n, "postulación", "postulaciones")}`;
+}
+
+export function formatSeleccionadas(n: number): string {
+  return `${formatNumber(n)} ${pluralize(n, "seleccionada", "seleccionadas")}`;
+}

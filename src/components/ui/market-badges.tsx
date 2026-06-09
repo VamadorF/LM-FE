@@ -1,4 +1,5 @@
 import { Badge } from "./badge";
+import { Tooltip } from "./tooltip";
 import {
   estadoOfertaMeta,
   estadoPostulacionMeta,
@@ -13,5 +14,9 @@ export function EstadoOfertaBadge({ estado }: { estado: EstadoOferta }) {
 
 export function EstadoPostulacionBadge({ estado }: { estado: EstadoPostulacion }) {
   const meta = estadoPostulacionMeta(estado);
-  return <Badge className={meta.tone}>{meta.label}</Badge>;
+  return (
+    <Tooltip content={meta.descripcion}>
+      <Badge className={meta.tone}>{meta.label}</Badge>
+    </Tooltip>
+  );
 }

@@ -166,7 +166,7 @@ export const ESTADOS_POSTULACION: EstadoPostulacionMeta[] = [
   },
   {
     value: "en_revision",
-    label: "En revision",
+    label: "En revisión",
     tone: "bg-indigo-100 text-indigo-700 border-indigo-200",
     abierta: true,
     descripcion: "Estas evaluando si este contacto calza con tu oferta.",
@@ -180,7 +180,7 @@ export const ESTADOS_POSTULACION: EstadoPostulacionMeta[] = [
   },
   {
     value: "en_negociacion",
-    label: "En negociacion",
+    label: "En negociación",
     tone: "bg-amber-100 text-amber-700 border-amber-200",
     abierta: true,
     descripcion: "Hay conversacion activa con este contacto o conector.",

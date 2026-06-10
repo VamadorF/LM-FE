@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { BookUser, ListChecks, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const STORAGE_KEY = "leadmanager.tip.agenda-listas";
+const STORAGE_KEY = "leadmanager.tip.agenda-listas.v2";
 
 export function AgendaListasTip() {
   const [visible, setVisible] = useState(false);

@@ -65,33 +65,35 @@ export default function LeadListasPage() {
           <p className="mb-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {misListas.length} carpetas
           </p>
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {misListas.map((lista) => (
-              <div key={lista.id} className="group relative">
+              <div
+                key={lista.id}
+                className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm"
+              >
                 <FolderItem
                   icon={Folder}
                   label={lista.nombre}
                   subtitle={`${formatNumber(conteo.get(lista.id) ?? 0)} contactos`}
                   onOpen={() => router.push(`/lead/listas/${lista.id}`)}
+                  className="border-0"
                 />
-                <div className="absolute right-0 top-0 z-10 flex gap-0.5 p-1">
+                <div className="flex border-t">
                   <Button
-                    size="icon"
-                    variant="secondary"
-                    className="size-7 shadow-sm"
+                    size="sm"
+                    variant="ghost"
+                    className="h-9 flex-1 rounded-none"
                     onClick={() => setEditando(lista)}
-                    aria-label="Editar lista"
                   >
-                    <Pencil className="size-3.5" />
+                    <Pencil className="size-3.5" /> Editar
                   </Button>
                   <Button
-                    size="icon"
-                    variant="secondary"
-                    className="size-7 text-destructive shadow-sm hover:text-destructive"
+                    size="sm"
+                    variant="ghost"
+                    className="h-9 flex-1 rounded-none text-destructive hover:text-destructive"
                     onClick={() => setEliminando(lista)}
-                    aria-label="Eliminar lista"
                   >
-                    <Trash2 className="size-3.5" />
+                    <Trash2 className="size-3.5" /> Eliminar
                   </Button>
                 </div>
               </div>

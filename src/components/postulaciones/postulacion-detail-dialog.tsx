@@ -76,6 +76,7 @@ export function PostulacionDetailDialog({
   const [ratingOpen, setRatingOpen] = useState(false);
   const [bannerExito, setBannerExito] = useState<string | null>(null);
   const transaccionRef = useRef<HTMLDivElement>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) {
@@ -85,10 +86,10 @@ export function PostulacionDetailDialog({
   }, [open]);
 
   useEffect(() => {
-    if (postulacion?.estado === "completada" && bannerExito && transaccionRef.current) {
-      transaccionRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-  }, [postulacion?.estado, bannerExito]);
+    if (!bannerExito) return;
+    const target = bannerRef.current ?? transaccionRef.current;
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [bannerExito, postulacion?.estado]);
 
   if (!postulacion) return null;
 
@@ -125,8 +126,13 @@ export function PostulacionDetailDialog({
 
         <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1 scrollbar-thin">
           {bannerExito ? (
-            <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-800">
-              <CheckCircle2 className="size-4 shrink-0" />
+            <div
+              ref={bannerRef}
+              className="sticky top-0 z-10 flex items-center gap-2 rounded-lg border-2 border-emerald-300 bg-emerald-100 px-3 py-3 text-sm font-semibold text-emerald-900 shadow-sm"
+              role="status"
+              aria-live="polite"
+            >
+              <CheckCircle2 className="size-5 shrink-0" />
               {bannerExito}
             </div>
           ) : null}

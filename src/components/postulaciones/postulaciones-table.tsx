@@ -205,11 +205,15 @@ export function PostulacionesTable({
             <option value="valor">Mayor valor</option>
           </Select>
         </div>
-        {hayFiltrosActivos ? (
-          <Button variant="ghost" size="sm" onClick={limpiarFiltros} className="shrink-0">
-            Limpiar filtros
-          </Button>
-        ) : null}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={limpiarFiltros}
+          disabled={!hayFiltrosActivos}
+          className="shrink-0"
+        >
+          Limpiar filtros
+        </Button>
       </div>
 
       <p className="text-sm text-muted-foreground">

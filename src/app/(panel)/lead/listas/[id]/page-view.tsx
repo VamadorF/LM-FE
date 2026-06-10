@@ -197,6 +197,26 @@ export default function ListaDetallePage({ listaId }: { listaId: string }) {
         </Card>
       )}
 
+      {lista ? (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Eliminar carpeta</p>
+              <p className="text-sm text-muted-foreground">
+                Borra esta lista. Los contactos permanecen en tu agenda.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setEliminandoLista(true)}
+            >
+              <Trash2 /> Eliminar carpeta
+            </Button>
+          </div>
+        </Card>
+      ) : null}
+
       {agregar && lista ? (
         <AgregarContactosDialog open={agregar} onOpenChange={setAgregar} lista={lista} />
       ) : null}

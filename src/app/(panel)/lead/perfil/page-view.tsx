@@ -1,124 +1,110 @@
 "use client";
 
-import { useMemo } from "react";
-import { Mail, Phone, MapPin, Calendar } from "lucide-react";
-import { useStore, useHydrated } from "@/lib/store";
-import { useLeadActivo } from "@/lib/identidad";
-import { promedioRating, resumenLead } from "@/lib/selectors";
-import { formatCLP, formatDate, formatNumber } from "@/lib/format";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
+import { useAuthStore } from "@/lib/auth-store";
+import { useUpdateLeadManager } from "@/lib/api/auth";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Stars } from "@/components/ui/stars";
-import { Skeleton } from "@/components/ui/skeleton";
+
+const schema = z.object({
+  fullName: z.string().min(2, "Requerido"),
+  phone: z.string().optional(),
+  city: z.string().min(1, "Requerido"),
+  country: z.string().min(1, "Requerido"),
+  bio: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof schema>;
 
 export default function LeadPerfilPage() {
-  const hydrated = useHydrated();
-  const lead = useLeadActivo();
-  const postulaciones = useStore((s) => s.postulaciones);
-  const ratings = useStore((s) => s.ratings);
-  const empresas = useStore((s) => s.empresas);
+  const { user } = useAuthStore();
+  const lm = user?.leadManager;
+  const updateMut = useUpdateLeadManager();
 
-  const empresaById = useMemo(() => new Map(empresas.map((e) => [e.id, e])), [empresas]);
+  const { register, handleSubmit, formState: { errors, isDirty } } = useForm<FormValues>({
+    values: lm
+      ? { fullName: lm.fullName, phone: lm.phone ?? "", city: lm.city, country: lm.country, bio: lm.bio ?? "" }
+      : undefined,
+  });
 
-  const data = useMemo(() => {
-    if (!lead) return null;
-    const resumen = resumenLead(lead.id, postulaciones, ratings);
-    const recibidas = ratings
-      .filter((r) => r.paraTipo === "lead" && r.paraId === lead.id)
-      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-    return { resumen, recibidas, rating: promedioRating(ratings, "lead", lead.id) };
-  }, [lead, postulaciones, ratings]);
+  const onSubmit = (values: FormValues) => {
+    updateMut.mutate(values);
+  };
 
-  if (!hydrated || !data || !lead) {
-    return (
-      <>
-        <PageHeader title="Mi perfil" description="Tu reputacion como conector" />
-        <Skeleton className="h-80" />
-      </>
-    );
-  }
+  if (!lm) return null;
 
   return (
     <>
-      <PageHeader title="Mi perfil" description="Tu reputacion como conector" />
+      <PageHeader title="Mi perfil" description="Informacion visible para las empresas" />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
-          <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
-            <Avatar name={lead.nombre} className="size-20 text-2xl" />
-            <div>
-              <h2 className="text-lg font-semibold">{lead.nombre}</h2>
-              <p className="text-sm text-muted-foreground">{lead.comuna}, {lead.region}</p>
-            </div>
-            <Stars value={data.rating.promedio} size="md" showValue count={data.rating.total} />
-            <p className="text-sm text-muted-foreground">{lead.bio}</p>
-            <div className="mt-2 w-full space-y-2 border-t pt-4 text-left text-sm">
-              <p className="flex items-center gap-2 text-muted-foreground">
-                <Mail className="size-4" /> {lead.email}
-              </p>
-              <p className="flex items-center gap-2 text-muted-foreground">
-                <Phone className="size-4" /> {lead.telefono}
-              </p>
-              <p className="flex items-center gap-2 text-muted-foreground">
-                <MapPin className="size-4" /> {lead.comuna}
-              </p>
-              <p className="flex items-center gap-2 text-muted-foreground">
-                <Calendar className="size-4" /> Miembro desde {formatDate(lead.fechaIngreso)}
-              </p>
+        {/* Reputacion */}
+        <Card>
+          <CardHeader><CardTitle>Reputacion</CardTitle></CardHeader>
+          <CardContent className="flex flex-col items-center gap-3 py-6 text-center">
+            <p className="text-4xl font-bold">{lm.avgRating ? lm.avgRating.toFixed(1) : "—"}</p>
+            <Stars value={lm.avgRating ?? 0} size="md" />
+            <p className="text-sm text-muted-foreground">{lm.reviewCount ?? 0} evaluaciones</p>
+            <div className="mt-2 border-t pt-3 w-full text-sm">
+              <p className="text-muted-foreground">Contactos en agenda</p>
+              <p className="text-2xl font-bold text-foreground">{lm.contactCount ?? "—"}</p>
             </div>
           </CardContent>
         </Card>
 
-        <div className="space-y-6 lg:col-span-2">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Card>
-              <CardContent className="p-5">
-                <p className="text-2xl font-bold">{formatNumber(data.resumen.completadas)}</p>
-                <p className="text-sm text-muted-foreground">Negocios cerrados</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-5">
-                <p className="text-2xl font-bold text-emerald-700">{formatCLP(data.resumen.comisiones)}</p>
-                <p className="text-sm text-muted-foreground">Comisiones</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-5">
-                <p className="text-2xl font-bold">{formatNumber(data.resumen.postulaciones)}</p>
-                <p className="text-sm text-muted-foreground">Postulaciones</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Evaluaciones recibidas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {data.recibidas.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  Aun no tienes evaluaciones. Se generan cuando una empresa cierra negocio contigo.
-                </p>
-              ) : (
-                data.recibidas.slice(0, 20).map((r) => (
-                  <div key={r.id} className="flex gap-3 border-b pb-4 last:border-0 last:pb-0">
-                    <Avatar name={empresaById.get(r.deId)?.nombre ?? "?"} className="size-9 text-[10px]" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium">{empresaById.get(r.deId)?.nombre ?? "Empresa"}</p>
-                        <Stars value={r.estrellas} />
-                      </div>
-                      <p className="mt-1 text-sm text-muted-foreground">{r.comentario}</p>
-                      <p className="mt-1 text-xs text-muted-foreground/70">{formatDate(r.fecha)}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        {/* Formulario */}
+        <Card className="lg:col-span-2">
+          <CardHeader><CardTitle>Editar informacion</CardTitle></CardHeader>
+          <CardContent>
+            {updateMut.isSuccess && (
+              <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                Perfil actualizado correctamente.
+              </div>
+            )}
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="pf-name">Nombre completo *</Label>
+                <Input id="pf-name" {...register("fullName")} />
+                {errors.fullName && <p className="text-xs text-destructive">{errors.fullName.message}</p>}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="pf-phone">Telefono</Label>
+                  <Input id="pf-phone" type="tel" {...register("phone")} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="pf-city">Ciudad *</Label>
+                  <Input id="pf-city" {...register("city")} />
+                  {errors.city && <p className="text-xs text-destructive">{errors.city.message}</p>}
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="pf-country">Pais *</Label>
+                  <Input id="pf-country" {...register("country")} />
+                  {errors.country && <p className="text-xs text-destructive">{errors.country.message}</p>}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pf-bio">Bio</Label>
+                <Textarea id="pf-bio" rows={4} placeholder="Cuéntanos sobre ti y tu red de contactos..."
+                  {...register("bio")} />
+              </div>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={updateMut.isPending || !isDirty}>
+                  {updateMut.isPending && <Loader2 className="animate-spin" />}
+                  Guardar cambios
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </>
   );

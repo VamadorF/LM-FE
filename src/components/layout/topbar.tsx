@@ -3,7 +3,6 @@
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { EMPRESA_NAV, LEAD_NAV } from "./nav";
-import { DevRoleSwitch } from "./dev-role-switch";
 
 function titulo(pathname: string): string {
   const items = [...EMPRESA_NAV, ...LEAD_NAV].sort((a, b) => b.href.length - a.href.length);
@@ -47,7 +46,6 @@ export function Topbar({
           {hoy}
         </p>
       </div>
-      <DevRoleSwitch />
     </header>
   );
 }

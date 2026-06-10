@@ -2,138 +2,94 @@
 
 import { useMemo, useState } from "react";
 import { Contact, Plus, Pencil, Trash2, Search } from "lucide-react";
-import { useStore, useHydrated } from "@/lib/store";
-import { useLeadActivo } from "@/lib/identidad";
+import { useContacts, useDeleteContact, type Contact as ContactType } from "@/lib/api/contacts";
 import { useDebounced } from "@/lib/hooks";
-import { contactosDelLead } from "@/lib/selectors";
-import { filtrarOrdenar } from "@/lib/query";
-import { formatRut } from "@/lib/format";
-import type { Contacto } from "@/lib/types";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ContactoForm } from "@/components/contactos/contacto-form";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { AgendaListasTip } from "@/components/onboarding/agenda-listas-tip";
+
+const normalize = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
 export default function LeadAgendaPage() {
-  const hydrated = useHydrated();
-  const lead = useLeadActivo();
-  const contactos = useStore((s) => s.contactos);
-  const eliminarContacto = useStore((s) => s.eliminarContacto);
-
-  const misContactos = useMemo(
-    () => (lead ? contactosDelLead(contactos, lead.id) : []),
-    [contactos, lead],
-  );
+  const { data: contacts = [], isLoading } = useContacts();
+  const deleteContact = useDeleteContact();
 
   const [searchRaw, setSearchRaw] = useState("");
   const search = useDebounced(searchRaw, 200);
   const [crear, setCrear] = useState(false);
-  const [editando, setEditando] = useState<Contacto | null>(null);
-  const [eliminando, setEliminando] = useState<Contacto | null>(null);
+  const [editando, setEditando] = useState<ContactType | null>(null);
+  const [eliminando, setEliminando] = useState<ContactType | null>(null);
 
-  const resultado = useMemo(
-    () =>
-      filtrarOrdenar(misContactos, {
-        search,
-        getSearchText: (c) => `${c.nombre} ${c.email} ${c.empresa} ${c.comuna}`,
-        sort: (a, b) => a.nombre.localeCompare(b.nombre),
-      }),
-    [misContactos, search],
-  );
+  const filtered = useMemo(() => {
+    const term = normalize(search.trim());
+    const sorted = [...contacts].sort((a, b) =>
+      (a.firstName + " " + a.lastName).localeCompare(b.firstName + " " + b.lastName)
+    );
+    if (!term) return sorted;
+    return sorted.filter((c) =>
+      normalize(`${c.firstName} ${c.lastName} ${c.email ?? ""} ${c.city ?? ""}`).includes(term)
+    );
+  }, [contacts, search]);
 
   return (
     <>
-      <PageHeader
-        title="Agenda"
-        description="Tu base maestra de contactos: crea cada persona una vez y reutilizala en tus listas"
-      >
+      <PageHeader title="Agenda" description={`${contacts.length} contacto(s)`}>
         <Button onClick={() => setCrear(true)}>
           <Plus /> Nuevo contacto
         </Button>
       </PageHeader>
 
-      <AgendaListasTip />
-
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
         <Input
+          className="pl-8"
+          placeholder="Buscar por nombre, email, ciudad..."
           value={searchRaw}
           onChange={(e) => setSearchRaw(e.target.value)}
-          placeholder="Buscar contacto..."
-          className="pl-9"
         />
       </div>
 
-      {!hydrated ? (
-        <Skeleton className="h-72" />
-      ) : misContactos.length === 0 ? (
+      {isLoading ? (
+        <Skeleton className="h-64" />
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={Contact}
-          title="Tu agenda esta vacia"
-          description="Agrega contactos para poder organizarlos en listas y postularlos a las ofertas."
-          action={
-            <Button onClick={() => setCrear(true)}>
-              <Plus /> Agregar contacto
-            </Button>
-          }
+          title="Sin contactos"
+          description={search ? "No se encontraron resultados." : "Agrega tu primer contacto para empezar."}
+          action={!search ? <Button size="sm" onClick={() => setCrear(true)}>Agregar contacto</Button> : undefined}
         />
-      ) : resultado.length === 0 ? (
-        <EmptyState icon={Search} title="Sin resultados" description="Ajusta tu busqueda." />
       ) : (
-        <Card>
+        <div className="overflow-x-auto rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
-                <TableHead>Empresa</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Telefono</TableHead>
-                <TableHead>Comuna</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+                <TableHead>Edad</TableHead>
+                <TableHead className="hidden sm:table-cell">Email</TableHead>
+                <TableHead className="hidden md:table-cell">Ciudad</TableHead>
+                <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {resultado.map((c) => (
+              {filtered.map((c) => (
                 <TableRow key={c.id}>
+                  <TableCell className="font-medium">{c.firstName} {c.lastName}</TableCell>
+                  <TableCell>{c.age}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{c.email ?? "—"}</TableCell>
+                  <TableCell className="hidden md:table-cell">{c.city ?? "—"}</TableCell>
                   <TableCell>
-                    <p className="font-medium text-foreground">{c.nombre}</p>
-                    <p className="text-xs text-muted-foreground">{formatRut(c.rut)}</p>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{c.empresa || "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">{c.email}</TableCell>
-                  <TableCell className="text-muted-foreground">{c.telefono || "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">{c.comuna || "—"}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="size-8"
-                        onClick={() => setEditando(c)}
-                        aria-label="Editar contacto"
-                      >
+                    <div className="flex gap-1">
+                      <Button size="icon" variant="ghost" onClick={() => setEditando(c)}>
                         <Pencil className="size-4" />
                       </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="size-8 text-destructive hover:text-destructive"
-                        onClick={() => setEliminando(c)}
-                        aria-label="Eliminar contacto"
-                      >
+                      <Button size="icon" variant="ghost" onClick={() => setEliminando(c)}
+                        className="text-destructive hover:text-destructive">
                         <Trash2 className="size-4" />
                       </Button>
                     </div>
@@ -142,26 +98,28 @@ export default function LeadAgendaPage() {
               ))}
             </TableBody>
           </Table>
-        </Card>
+        </div>
       )}
 
-      {crear ? <ContactoForm open={crear} onOpenChange={setCrear} /> : null}
-      {editando ? (
+      <ContactoForm open={crear} onOpenChange={setCrear} />
+      {editando && (
         <ContactoForm
-          open={Boolean(editando)}
-          onOpenChange={(v) => !v && setEditando(null)}
-          contacto={editando}
+          open={!!editando}
+          onOpenChange={(v) => { if (!v) setEditando(null); }}
+          contact={editando}
         />
-      ) : null}
-      {eliminando ? (
-        <ConfirmDialog
-          open={Boolean(eliminando)}
-          onOpenChange={(v) => !v && setEliminando(null)}
-          title="Eliminar contacto"
-          description={`Se eliminara a "${eliminando.nombre}" de tu agenda y de todas tus listas. Esta accion no se puede deshacer.`}
-          onConfirm={() => eliminarContacto(eliminando.id)}
-        />
-      ) : null}
+      )}
+      <ConfirmDialog
+        open={!!eliminando}
+        onOpenChange={(v) => { if (!v) setEliminando(null); }}
+        title="Eliminar contacto"
+        description={`Eliminar a ${eliminando?.firstName} ${eliminando?.lastName}? Esta accion no se puede deshacer.`}
+        onConfirm={() => {
+          if (eliminando) {
+            deleteContact.mutate(eliminando.id, { onSuccess: () => setEliminando(null) });
+          }
+        }}
+      />
     </>
   );
 }

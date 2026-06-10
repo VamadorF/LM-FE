@@ -1,265 +1,125 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { Search, Star } from "lucide-react";
-import { useStore, useHydrated } from "@/lib/store";
-import { useLeadActivo } from "@/lib/identidad";
-import { useDebounced } from "@/lib/hooks";
-import { filtrarOrdenar, paginar } from "@/lib/query";
-import { ESTADOS_POSTULACION, type Postulacion } from "@/lib/types";
-import { formatCLP, formatRelative } from "@/lib/format";
+import { Inbox } from "lucide-react";
+import { useMyBids, useWithdrawBid, type Bid } from "@/lib/api/bids";
 import { PageHeader } from "@/components/ui/page-header";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { EstadoPostulacionBadge } from "@/components/ui/market-badges";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { TableSkeleton } from "@/components/ui/skeleton";
-import { RatingDialog } from "@/components/ratings/rating-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatRelative } from "@/lib/format";
 
-const PAGE_SIZE = 12;
+const STATUS_META: Record<string, { label: string; className: string }> = {
+  pending:   { label: "Pendiente",  className: "bg-amber-100 text-amber-700" },
+  accepted:  { label: "Aceptado",   className: "bg-emerald-100 text-emerald-700" },
+  rejected:  { label: "Rechazado",  className: "bg-red-100 text-red-600" },
+  withdrawn: { label: "Retirado",   className: "bg-slate-100 text-slate-600" },
+  completed: { label: "Completado", className: "bg-sky-100 text-sky-700" },
+};
 
-export default function MisPostulacionesPage() {
-  const hydrated = useHydrated();
-  const lead = useLeadActivo();
-  const postulaciones = useStore((s) => s.postulaciones);
-  const ofertas = useStore((s) => s.ofertas);
-  const empresas = useStore((s) => s.empresas);
-  const ratings = useStore((s) => s.ratings);
+const FILTER_OPTIONS = [
+  { value: "", label: "Todas" },
+  { value: "pending", label: "Pendientes" },
+  { value: "accepted", label: "Aceptadas" },
+  { value: "completed", label: "Completadas" },
+  { value: "rejected", label: "Rechazadas" },
+];
 
-  const ofertaById = useMemo(() => new Map(ofertas.map((o) => [o.id, o])), [ofertas]);
-  const empresaById = useMemo(() => new Map(empresas.map((e) => [e.id, e])), [empresas]);
+export default function LeadPostulacionesPage() {
+  const { data: bids = [], isLoading } = useMyBids();
+  const withdrawMut = useWithdrawBid();
+  const [filter, setFilter] = useState("");
+  const [withdrawing, setWithdrawing] = useState<Bid | null>(null);
 
-  const [searchRaw, setSearchRaw] = useState("");
-  const search = useDebounced(searchRaw, 200);
-  const [estado, setEstado] = useState("");
-  const [page, setPage] = useState(1);
-  const [calificar, setCalificar] = useState<Postulacion | null>(null);
-
-  const mias = useMemo(
-    () => postulaciones.filter((p) => p.leadId === lead?.id),
-    [postulaciones, lead],
-  );
-
-  const filtradas = useMemo(
-    () =>
-      filtrarOrdenar(mias, {
-        search,
-        getSearchText: (p) => `${p.contacto.nombre} ${ofertaById.get(p.ofertaId)?.titulo ?? ""}`,
-        filters: estado ? [(p) => p.estado === estado] : [],
-        sort: (a, b) =>
-          new Date(b.fechaActualizacion).getTime() - new Date(a.fechaActualizacion).getTime(),
-      }),
-    [mias, search, estado, ofertaById],
-  );
-
-  const result = paginar(filtradas, page, PAGE_SIZE);
-
-  const yaCalifico = (p: Postulacion) =>
-    ratings.some((r) => r.postulacionId === p.id && r.deTipo === "lead");
+  const filtered = useMemo(() => {
+    const sorted = [...bids].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (!filter) return sorted;
+    return sorted.filter((b) => b.status === filter);
+  }, [bids, filter]);
 
   return (
     <>
-      <PageHeader title="Mis postulaciones" description={`${mias.length} contactos postulados`} />
+      <PageHeader title="Mis postulaciones" description={`${bids.length} en total`} />
 
-      <Card className="p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchRaw}
-              onChange={(e) => {
-                setSearchRaw(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Buscar por contacto u oferta..."
-              className="pl-9"
-            />
-          </div>
-          <Select
-            value={estado}
-            onChange={(e) => {
-              setEstado(e.target.value);
-              setPage(1);
-            }}
-            className="sm:w-52"
-          >
-            <option value="">Todos los estados</option>
-            {ESTADOS_POSTULACION.map((e) => (
-              <option key={e.value} value={e.value}>
-                {e.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-      </Card>
+      <div className="flex flex-wrap gap-2">
+        {FILTER_OPTIONS.map((opt) => (
+          <button key={opt.value}
+            onClick={() => setFilter(opt.value)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              filter === opt.value
+                ? "bg-primary text-primary-foreground border-primary"
+                : "hover:bg-secondary text-muted-foreground"
+            }`}>
+            {opt.label}
+          </button>
+        ))}
+      </div>
 
-      <Card>
-        {!hydrated ? (
-          <div className="p-4">
-            <TableSkeleton />
-          </div>
-        ) : result.items.length === 0 ? (
-          <EmptyState
-            icon={Search}
-            title="Sin postulaciones"
-            description="Explora ofertas y postula contactos de tu red para ganar comisiones."
-            action={
-              <Link href="/lead/ofertas">
-                <Button>Explorar ofertas</Button>
-              </Link>
-            }
-            className="m-4"
-          />
-        ) : (
-          <>
-            <div className="space-y-2 p-4 md:hidden">
-              {result.items.map((p) => {
-                const oferta = ofertaById.get(p.ofertaId);
+      {isLoading ? (
+        <Skeleton className="h-64" />
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={Inbox} title="Sin postulaciones"
+          description={filter ? "No hay postulaciones con este filtro." : "Aun no has postulado. Explora las ofertas disponibles."} />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Propuesta</TableHead>
+                <TableHead>Empresa</TableHead>
+                <TableHead className="hidden sm:table-cell">Contactos</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="hidden md:table-cell">Fecha</TableHead>
+                <TableHead className="w-20" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((bid) => {
+                const meta = STATUS_META[bid.status] ?? STATUS_META.pending;
                 return (
-                  <div key={p.id} className="rounded-lg border bg-card p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-medium text-foreground">{p.contacto.nombre}</p>
-                        <p className="text-xs text-muted-foreground">{p.contacto.empresa}</p>
-                        <p className="mt-1 text-sm text-foreground">{oferta?.titulo ?? "—"}</p>
-                      </div>
-                      <EstadoPostulacionBadge estado={p.estado} />
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-                      <div className="text-sm">
-                        {p.estado === "completada" ? (
-                          <span className="font-semibold text-emerald-700">
-                            {formatCLP(p.comision ?? 0)}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          {formatRelative(p.fechaActualizacion)}
-                        </p>
-                      </div>
-                      {p.estado === "completada" ? (
-                        <Button
-                          size="sm"
-                          variant={yaCalifico(p) ? "outline" : "default"}
-                          disabled={yaCalifico(p)}
-                          onClick={() => setCalificar(p)}
-                        >
-                          <Star /> {yaCalifico(p) ? "Calificada" : "Calificar"}
+                  <TableRow key={bid.id}>
+                    <TableCell className="font-medium max-w-[200px] truncate">
+                      {bid.proposal.title}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {bid.leadManager?.fullName ?? "—"}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">{bid.contactCount}</TableCell>
+                    <TableCell>
+                      <Badge className={meta.className}>{meta.label}</Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
+                      {formatRelative(bid.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      {bid.status === "pending" && (
+                        <Button size="sm" variant="outline"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setWithdrawing(bid)}>
+                          Retirar
                         </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">En proceso</span>
                       )}
-                    </div>
-                  </div>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </div>
-            <div className="hidden md:block">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Contacto</TableHead>
-                    <TableHead>Oferta</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Comision</TableHead>
-                    <TableHead>Actualizado</TableHead>
-                    <TableHead className="text-right">Accion</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {result.items.map((p) => {
-                    const oferta = ofertaById.get(p.ofertaId);
-                    return (
-                      <TableRow key={p.id}>
-                        <TableCell>
-                          <p className="font-medium text-foreground">{p.contacto.nombre}</p>
-                          <p className="text-xs text-muted-foreground">{p.contacto.empresa}</p>
-                        </TableCell>
-                        <TableCell className="max-w-[220px]">{oferta?.titulo ?? "—"}</TableCell>
-                        <TableCell>
-                          <EstadoPostulacionBadge estado={p.estado} />
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {p.estado === "completada" ? (
-                            <span className="font-semibold text-emerald-700">
-                              {formatCLP(p.comision ?? 0)}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {formatRelative(p.fechaActualizacion)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {p.estado === "completada" ? (
-                            <Button
-                              size="sm"
-                              variant={yaCalifico(p) ? "outline" : "default"}
-                              disabled={yaCalifico(p)}
-                              onClick={() => setCalificar(p)}
-                            >
-                              <Star /> {yaCalifico(p) ? "Calificada" : "Calificar"}
-                            </Button>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">En proceso</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </>
-        )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
-        {hydrated && filtradas.length > PAGE_SIZE ? (
-          <div className="flex items-center justify-between border-t px-4 py-3 text-sm">
-            <p className="text-muted-foreground">
-              Pagina {result.page} de {result.pageCount}
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={result.page <= 1} onClick={() => setPage((p) => p - 1)}>
-                Anterior
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={result.page >= result.pageCount}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Siguiente
-              </Button>
-            </div>
-          </div>
-        ) : null}
-      </Card>
-
-      {calificar && lead ? (
-        <RatingDialog
-          open={Boolean(calificar)}
-          onOpenChange={(v) => !v && setCalificar(null)}
-          postulacion={calificar}
-          deTipo="lead"
-          deId={lead.id}
-          paraTipo="empresa"
-          paraId={ofertaById.get(calificar.ofertaId)?.empresaId ?? ""}
-          paraNombre={empresaById.get(ofertaById.get(calificar.ofertaId)?.empresaId ?? "")?.nombre ?? "la empresa"}
-        />
-      ) : null}
+      <ConfirmDialog
+        open={!!withdrawing}
+        onOpenChange={(v) => { if (!v) setWithdrawing(null); }}
+        title="Retirar postulacion"
+        description="Retirar esta postulacion? No podras revertir la accion."
+        onConfirm={() => {
+          if (withdrawing) withdrawMut.mutate(withdrawing.id, { onSuccess: () => setWithdrawing(null) });
+        }}
+      />
     </>
   );
 }

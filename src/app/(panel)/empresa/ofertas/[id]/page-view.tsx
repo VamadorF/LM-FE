@@ -1,161 +1,157 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Pencil, Users, CheckCircle2, Coins, Target } from "lucide-react";
-import { useStore, useHydrated } from "@/lib/store";
-import {
-  postulacionesDeOferta,
-  rankingLeads,
-  resumirPostulaciones,
-} from "@/lib/selectors";
-import { comisionLabel } from "@/lib/types";
-import { formatCLP, formatNumber } from "@/lib/format";
+import { useState } from "react";
+import { useParams } from "next/navigation";
+import { CheckCircle, XCircle, Loader2, User, Star } from "lucide-react";
+import { useProposal } from "@/lib/api/proposals";
+import { useProposalBids, useAcceptBid, useRejectBid, useBidContacts } from "@/lib/api/bids";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { EstadoOfertaBadge } from "@/components/ui/market-badges";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PostulacionesTable } from "@/components/postulaciones/postulaciones-table";
-import { Leaderboard } from "@/components/ranking/leaderboard";
-import { OfertaForm } from "@/components/ofertas/oferta-form";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatRelative } from "@/lib/format";
+import type { Bid } from "@/lib/api/bids";
 
-export default function EmpresaOfertaDetailPage({ ofertaId }: { ofertaId: string }) {
-  const hydrated = useHydrated();
-  const ofertas = useStore((s) => s.ofertas);
-  const postulaciones = useStore((s) => s.postulaciones);
-  const leads = useStore((s) => s.leads);
-  const [editOpen, setEditOpen] = useState(false);
+function BidRow({ bid }: { bid: Bid }) {
+  const acceptMut = useAcceptBid();
+  const rejectMut = useRejectBid();
+  const [expanded, setExpanded] = useState(false);
+  const { data: contacts = [], isFetching } = useBidContacts(bid.id);
 
-  const oferta = useMemo(() => ofertas.find((o) => o.id === ofertaId), [ofertas, ofertaId]);
-
-  const ps = useMemo(
-    () => (oferta ? postulacionesDeOferta(postulaciones, oferta.id) : []),
-    [oferta, postulaciones],
-  );
-  const resumen = useMemo(() => resumirPostulaciones(ps), [ps]);
-  const ranking = useMemo(
-    () => (oferta ? rankingLeads(ps, leads, { ofertaId: oferta.id }) : []),
-    [ps, leads, oferta],
-  );
-
-  if (!hydrated) {
-    return <Skeleton className="h-96" />;
-  }
-
-  if (!oferta) {
-    return (
-      <div className="py-16 text-center">
-        <p className="font-medium">Oferta no encontrada</p>
-        <Link href="/empresa/ofertas" className="mt-3 inline-block text-sm text-primary hover:underline">
-          Volver a mis ofertas
-        </Link>
-      </div>
-    );
-  }
+  const isPending = bid.status === "pending";
 
   return (
-    <>
-      <Link
-        href="/empresa/ofertas"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" /> Volver a mis ofertas
-      </Link>
-
-      <PageHeader title={oferta.titulo} description={oferta.categoria}>
-        <EstadoOfertaBadge estado={oferta.estado} />
-        <Button variant="outline" onClick={() => setEditOpen(true)}>
-          <Pencil /> Editar
-        </Button>
-      </PageHeader>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MiniKpi icon={Users} label="Postulaciones" value={formatNumber(resumen.total)} accent="text-sky-600" />
-        <MiniKpi icon={Target} label="Seleccionadas" value={formatNumber(resumen.porEstado.seleccionada + resumen.porEstado.en_negociacion)} accent="text-violet-600" />
-        <MiniKpi icon={CheckCircle2} label="Transacciones" value={formatNumber(resumen.completadas)} accent="text-emerald-600" />
-        <MiniKpi icon={Coins} label="Comisiones" value={formatCLP(resumen.comisiones)} accent="text-amber-600" />
-      </div>
-
-      <Tabs defaultValue="bandeja">
-        <TabsList>
-          <TabsTrigger value="bandeja">Bandeja de postulaciones</TabsTrigger>
-          <TabsTrigger value="ranking">Ranking de conectores</TabsTrigger>
-          <TabsTrigger value="info">Informacion</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="bandeja">
-          <PostulacionesTable postulaciones={ps} oferta={oferta} />
-        </TabsContent>
-
-        <TabsContent value="ranking">
-          <Card>
-            <CardContent className="p-3">
-              {ranking.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  Aun no hay conectores con postulaciones en esta oferta.
+    <Card className="mb-3">
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <User className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <CardTitle className="text-base">{bid.leadManager.fullName}</CardTitle>
+              {bid.leadManager.avgRating != null && (
+                <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                  {bid.leadManager.avgRating.toFixed(1)}
+                  {bid.leadManager.reviewCount != null && ` (${bid.leadManager.reviewCount})`}
                 </p>
-              ) : (
-                <Leaderboard filas={ranking.slice(0, 50)} />
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="info">
-          <Card>
-            <CardContent className="space-y-4 p-6">
-              <Info label="Descripcion">{oferta.descripcion}</Info>
-              <Info label="Que contacto busca">{oferta.criterios}</Info>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Info label="Comision">{comisionLabel(oferta)}</Info>
-                <Info label="Ticket estimado">{formatCLP(oferta.valorTicketEstimado)}</Info>
-                <Info label="Meta de contactos">{formatNumber(oferta.objetivoContactos)}</Info>
-                <Info label="Region">{oferta.region}</Info>
-                <Info label="Estado">{oferta.estado}</Info>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <OfertaForm open={editOpen} onOpenChange={setEditOpen} oferta={oferta} />
-    </>
-  );
-}
-
-function MiniKpi({
-  icon: Icon,
-  label,
-  value,
-  accent,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  accent: string;
-}) {
-  return (
-    <Card>
-      <CardContent className="flex items-center gap-3 p-4">
-        <span className={`flex size-10 items-center justify-center rounded-lg bg-secondary ${accent}`}>
-          <Icon className="size-5" />
-        </span>
-        <div>
-          <p className="text-xl font-bold tracking-tight">{value}</p>
-          <p className="text-xs text-muted-foreground">{label}</p>
+            </div>
+          </div>
+          <Badge className={
+            bid.status === "accepted" ? "bg-emerald-100 text-emerald-700" :
+            bid.status === "rejected" ? "bg-red-100 text-red-600" :
+            bid.status === "pending"  ? "bg-amber-100 text-amber-700" :
+            "bg-slate-100 text-slate-600"
+          }>
+            {bid.status}
+          </Badge>
         </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">{bid.pitch}</p>
+        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+          <span>{bid.contactCount} contacto{bid.contactCount !== 1 ? "s" : ""}</span>
+          {bid.totalPrice && <span className="font-semibold text-foreground">${bid.totalPrice.toLocaleString("es-CL")}</span>}
+          <span>{formatRelative(bid.createdAt)}</span>
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          {isPending && (
+            <>
+              <Button
+                size="sm"
+                variant="default"
+                disabled={acceptMut.isPending}
+                onClick={() => acceptMut.mutate(bid.id)}
+              >
+                {acceptMut.isPending ? <Loader2 className="animate-spin h-4 w-4" /> : <CheckCircle className="h-4 w-4 mr-1" />}
+                Aceptar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={rejectMut.isPending}
+                onClick={() => rejectMut.mutate(bid.id)}
+              >
+                {rejectMut.isPending ? <Loader2 className="animate-spin h-4 w-4" /> : <XCircle className="h-4 w-4 mr-1" />}
+                Rechazar
+              </Button>
+            </>
+          )}
+          <Button size="sm" variant="ghost" onClick={() => setExpanded((v) => !v)}>
+            {expanded ? "Ocultar contactos" : "Ver contactos"}
+          </Button>
+        </div>
+
+        {expanded && (
+          <div className="mt-2 rounded-md border p-3 text-sm">
+            {isFetching ? (
+              <Skeleton className="h-20" />
+            ) : contacts.length === 0 ? (
+              <p className="text-muted-foreground text-xs">Sin contactos disponibles.</p>
+            ) : (
+              <ul className="space-y-1">
+                {contacts.map((c) => (
+                  <li key={c.id} className="flex gap-2">
+                    <span className="font-medium">{c.firstName} {c.lastName}</span>
+                    <span className="text-muted-foreground">{c.age} años</span>
+                    {c.city && <span className="text-muted-foreground">· {c.city}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function Info({ label, children }: { label: string; children: React.ReactNode }) {
+export default function EmpresaOfertaDetallePage() {
+  const { id } = useParams<{ id: string }>();
+  const { data: proposal, isLoading: loadProp } = useProposal(id);
+  const { data: bids = [], isLoading: loadBids } = useProposalBids(id);
+
+  if (loadProp || loadBids) return <Skeleton className="h-96 mt-4" />;
+  if (!proposal) return <p className="text-muted-foreground mt-8">Propuesta no encontrada.</p>;
+
+  const pending   = bids.filter((b) => b.status === "pending");
+  const accepted  = bids.filter((b) => b.status === "accepted");
+  const rest      = bids.filter((b) => b.status !== "pending" && b.status !== "accepted");
+
   return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm text-foreground">{children}</p>
-    </div>
+    <>
+      <PageHeader
+        title={proposal.title}
+        description={`${proposal.bidCount} bid${proposal.bidCount !== 1 ? "s" : ""} · ${proposal.contactsNeeded} contactos requeridos`}
+      />
+
+      {bids.length === 0 ? (
+        <EmptyState icon={User} title="Sin bids aún" description="Los lead managers aún no han postulado." />
+      ) : (
+        <>
+          {pending.length > 0 && (
+            <section className="mb-6">
+              <h2 className="font-semibold mb-3 text-sm text-muted-foreground uppercase tracking-wide">Pendientes ({pending.length})</h2>
+              {pending.map((b) => <BidRow key={b.id} bid={b} />)}
+            </section>
+          )}
+          {accepted.length > 0 && (
+            <section className="mb-6">
+              <h2 className="font-semibold mb-3 text-sm text-muted-foreground uppercase tracking-wide">Aceptados ({accepted.length})</h2>
+              {accepted.map((b) => <BidRow key={b.id} bid={b} />)}
+            </section>
+          )}
+          {rest.length > 0 && (
+            <section>
+              <h2 className="font-semibold mb-3 text-sm text-muted-foreground uppercase tracking-wide">Historial ({rest.length})</h2>
+              {rest.map((b) => <BidRow key={b.id} bid={b} />)}
+            </section>
+          )}
+        </>
+      )}
+    </>
   );
 }

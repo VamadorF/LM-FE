@@ -10,9 +10,10 @@ interface DialogProps {
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
   className?: string;
+  title?: string;
 }
 
-export function Dialog({ open, onOpenChange, children, className }: DialogProps) {
+export function Dialog({ open, onOpenChange, children, className, title }: DialogProps) {
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -49,6 +50,9 @@ export function Dialog({ open, onOpenChange, children, className }: DialogProps)
         >
           <X className="size-4" />
         </button>
+        {title && (
+          <h2 className="mb-4 pr-6 text-lg font-semibold tracking-tight">{title}</h2>
+        )}
         {children}
       </div>
     </div>,

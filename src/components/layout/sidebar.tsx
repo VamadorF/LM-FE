@@ -4,12 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { EMPRESA_NAV, LEAD_NAV } from "./nav";
-import { RoleSwitcher } from "./role-switcher";
+import { UserWidget } from "./user-widget";
 import { Logo } from "./logo";
+import { useAuthStore } from "@/lib/auth-store";
 
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const vistaEmpresa = pathname.startsWith("/empresa");
+  const { role } = useAuthStore();
+  const vistaEmpresa = role === "company" || pathname.startsWith("/empresa");
   const items = vistaEmpresa ? EMPRESA_NAV : LEAD_NAV;
 
   const isActive = (href: string) =>
@@ -49,7 +51,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <div className="border-t border-sidebar-border p-3">
-        <RoleSwitcher variant="dark" />
+        <UserWidget variant="dark" />
       </div>
     </div>
   );

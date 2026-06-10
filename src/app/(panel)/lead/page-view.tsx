@@ -1,88 +1,70 @@
 "use client";
 
-import { useMemo } from "react";
 import Link from "next/link";
-import { Inbox, CheckCircle2, Wallet, Trophy, ArrowRight, Compass, Contact, ListChecks } from "lucide-react";
-import { useStore, useHydrated } from "@/lib/store";
-import { useLeadActivo } from "@/lib/identidad";
-import {
-  comisionesPorMes,
-  conteoPorOferta,
-  contactosDelLead,
-  listasDelLead,
-  postulacionesDeLead,
-  rankingLeads,
-  resumenLead,
-} from "@/lib/selectors";
-import { formatCLP, formatNumber, formatRelative } from "@/lib/format";
+import { Inbox, CheckCircle2, Contact, ListChecks, Compass, ArrowRight, Clock } from "lucide-react";
+import { useAuthStore } from "@/lib/auth-store";
+import { useMyBids } from "@/lib/api/bids";
+import { useContacts } from "@/lib/api/contacts";
+import { useContactBooks } from "@/lib/api/contact-books";
+import { useProposals } from "@/lib/api/proposals";
+import { formatNumber } from "@/lib/format";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Stars } from "@/components/ui/stars";
-import { EstadoPostulacionBadge } from "@/components/ui/market-badges";
-import { CardsSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { KpiCard } from "@/components/dashboard/kpi-card";
-import { IngresosChart } from "@/components/dashboard/charts";
-import { OfertaCard } from "@/components/ofertas/oferta-card";
 import { Button } from "@/components/ui/button";
+import { Skeleton, CardsSkeleton } from "@/components/ui/skeleton";
+import { Stars } from "@/components/ui/stars";
+import { Badge } from "@/components/ui/badge";
+import { formatRelative } from "@/lib/format";
+
+const BID_STATUS_LABEL: Record<string, { label: string; className: string }> = {
+  pending:   { label: "Pendiente",  className: "bg-amber-100 text-amber-700" },
+  accepted:  { label: "Aceptado",   className: "bg-emerald-100 text-emerald-700" },
+  rejected:  { label: "Rechazado",  className: "bg-red-100 text-red-600" },
+  withdrawn: { label: "Retirado",   className: "bg-slate-100 text-slate-600" },
+  completed: { label: "Completado", className: "bg-emerald-100 text-emerald-700" },
+};
 
 export default function LeadDashboardPage() {
-  const hydrated = useHydrated();
-  const lead = useLeadActivo();
-  const postulaciones = useStore((s) => s.postulaciones);
-  const ofertas = useStore((s) => s.ofertas);
-  const empresas = useStore((s) => s.empresas);
-  const leads = useStore((s) => s.leads);
-  const ratings = useStore((s) => s.ratings);
-  const listas = useStore((s) => s.listas);
-  const contactos = useStore((s) => s.contactos);
+  const { user } = useAuthStore();
+  const lm = user?.leadManager;
 
-  const empresaById = useMemo(() => new Map(empresas.map((e) => [e.id, e])), [empresas]);
-  const conteo = useMemo(() => conteoPorOferta(postulaciones), [postulaciones]);
-  const misListas = useMemo(
-    () => (lead ? listasDelLead(listas, lead.id) : []),
-    [listas, lead],
-  );
-  const misContactos = useMemo(
-    () => (lead ? contactosDelLead(contactos, lead.id) : []),
-    [contactos, lead],
-  );
+  const { data: bids = [], isLoading: loadingBids } = useMyBids();
+  const { data: contacts = [], isLoading: loadingContacts } = useContacts();
+  const { data: books = [], isLoading: loadingBooks } = useContactBooks();
+  const { data: marketRes, isLoading: loadingMarket } = useProposals({ pageSize: 3 });
 
-  const data = useMemo(() => {
-    if (!lead) return null;
-    const mias = postulacionesDeLead(postulaciones, lead.id);
-    const resumen = resumenLead(lead.id, postulaciones, ratings);
-    const posicion = rankingLeads(postulaciones, leads).findIndex((f) => f.lead.id === lead.id) + 1;
-    const recientes = [...mias]
-      .sort((a, b) => new Date(b.fechaPostulacion).getTime() - new Date(a.fechaPostulacion).getTime())
-      .slice(0, 6);
-    return {
-      resumen,
-      posicion,
-      recientes,
-      comisiones: comisionesPorMes(mias, 6).map((m) => ({ mes: m.mes, ingresos: m.comisiones })),
-    };
-  }, [lead, postulaciones, leads, ratings]);
+  const pending   = bids.filter((b) => b.status === "pending").length;
+  const accepted  = bids.filter((b) => b.status === "accepted").length;
+  const completed = bids.filter((b) => b.status === "completed").length;
 
-  const recomendadas = useMemo(
-    () => ofertas.filter((o) => o.estado === "activa").slice(0, 3),
-    [ofertas],
-  );
+  const recientes = [...bids]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 6);
 
-  if (!hydrated || !data) {
+  const recomendadas = marketRes?.data ?? [];
+  const firstName = lm?.fullName?.split(" ")[0] ?? user?.email ?? "";
+
+  const isLoading = loadingBids || loadingContacts || loadingBooks;
+
+  if (isLoading) {
     return (
       <>
         <PageHeader title="Mi panel" description="Resumen de tu actividad como conector" />
         <CardsSkeleton />
-        <Skeleton className="h-72" />
+        <Skeleton className="h-64" />
       </>
     );
   }
 
   return (
     <>
-      <PageHeader title={`Hola, ${lead.nombre.split(" ")[0]}`} description="Resumen de tu actividad como conector">
+      <PageHeader
+        title={`Hola, ${firstName}`}
+        description="Resumen de tu actividad como conector"
+      >
         <Link href="/lead/agenda">
-          <Button variant="outline">
+          <Button className="border text-muted-foreground">
             <Contact /> Agenda
           </Button>
         </Link>
@@ -93,73 +75,70 @@ export default function LeadDashboardPage() {
         </Link>
       </PageHeader>
 
+      {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard icon={Inbox} label="Postulaciones" value={formatNumber(data.resumen.postulaciones)} hint={`${data.resumen.abiertas} en proceso`} accent="text-sky-600" />
-        <KpiCard icon={CheckCircle2} label="Cerradas" value={formatNumber(data.resumen.completadas)} hint={`${data.resumen.seleccionadas} seleccionadas`} accent="text-emerald-600" />
-        <KpiCard icon={Wallet} label="Comisiones ganadas" value={formatCLP(data.resumen.comisiones)} accent="text-amber-600" />
-        <KpiCard icon={Trophy} label="Mi ranking" value={data.posicion > 0 ? `#${data.posicion}` : "-"} hint={`Rating ${data.resumen.rating.toFixed(1)}`} accent="text-violet-600" />
+        <KpiCard icon={Inbox}        label="Postulaciones totales" value={formatNumber(bids.length)}   hint={`${pending} pendientes`}  accent="text-sky-600" />
+        <KpiCard icon={Clock}        label="Aceptadas"             value={formatNumber(accepted)}       hint="en proceso"               accent="text-violet-600" />
+        <KpiCard icon={CheckCircle2} label="Completadas"           value={formatNumber(completed)}      accent="text-emerald-600" />
+        <KpiCard icon={Contact}      label="Contactos en agenda"   value={formatNumber(contacts.length)} hint={`${books.length} listas`} accent="text-amber-600" />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Mis comisiones por mes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <IngresosChart data={data.comisiones} />
-          </CardContent>
-        </Card>
+      {/* Perfil + Agenda */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {lm && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Mi reputacion</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center justify-center gap-2 py-6 text-center">
+              <p className="text-4xl font-bold text-foreground">
+                {lm.avgRating ? lm.avgRating.toFixed(1) : "—"}
+              </p>
+              <Stars value={lm.avgRating ?? 0} size="md" />
+              <p className="text-sm text-muted-foreground">
+                {lm.reviewCount ?? 0} evaluaciones recibidas
+              </p>
+              <Link href="/lead/perfil" className="mt-2 text-sm font-medium text-primary hover:underline">
+                Ver mi perfil
+              </Link>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
-            <CardTitle>Mi reputacion</CardTitle>
+            <CardTitle>Agenda y listas</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-6 text-center">
-            <p className="text-4xl font-bold text-foreground">{data.resumen.rating.toFixed(1)}</p>
-            <Stars value={data.resumen.rating} size="md" />
-            <p className="text-sm text-muted-foreground">{data.resumen.ratingTotal} evaluaciones recibidas</p>
-            <Link href="/lead/perfil" className="mt-2 text-sm font-medium text-primary hover:underline">
-              Ver mi perfil
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <Link
+              href="/lead/agenda"
+              className="flex items-center gap-3 rounded-lg border bg-card/50 p-4 transition-colors hover:bg-secondary/50"
+            >
+              <span className="flex size-10 items-center justify-center rounded-full bg-secondary text-primary">
+                <Contact className="size-5" />
+              </span>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{formatNumber(contacts.length)}</p>
+                <p className="text-xs text-muted-foreground">Contactos en agenda</p>
+              </div>
+            </Link>
+            <Link
+              href="/lead/listas"
+              className="flex items-center gap-3 rounded-lg border bg-card/50 p-4 transition-colors hover:bg-secondary/50"
+            >
+              <span className="flex size-10 items-center justify-center rounded-full bg-secondary text-primary">
+                <ListChecks className="size-5" />
+              </span>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{formatNumber(books.length)}</p>
+                <p className="text-xs text-muted-foreground">Listas creadas</p>
+              </div>
             </Link>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>Mi agenda y listas</CardTitle>
-          <Link href="/lead/agenda" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-            Administrar <ArrowRight className="size-3.5" />
-          </Link>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Link
-            href="/lead/agenda"
-            className="flex items-center gap-3 rounded-lg border bg-card/50 p-4 transition-colors hover:bg-secondary/50"
-          >
-            <span className="flex size-10 items-center justify-center rounded-full bg-secondary text-primary">
-              <Contact className="size-5" />
-            </span>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{formatNumber(misContactos.length)}</p>
-              <p className="text-xs text-muted-foreground">Contactos en tu agenda</p>
-            </div>
-          </Link>
-          <Link
-            href="/lead/listas"
-            className="flex items-center gap-3 rounded-lg border bg-card/50 p-4 transition-colors hover:bg-secondary/50"
-          >
-            <span className="flex size-10 items-center justify-center rounded-full bg-secondary text-primary">
-              <ListChecks className="size-5" />
-            </span>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{formatNumber(misListas.length)}</p>
-              <p className="text-xs text-muted-foreground">Listas creadas</p>
-            </div>
-          </Link>
-        </CardContent>
-      </Card>
-
+      {/* Postulaciones recientes */}
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle>Mis postulaciones recientes</CardTitle>
@@ -168,22 +147,22 @@ export default function LeadDashboardPage() {
           </Link>
         </CardHeader>
         <CardContent className="divide-y">
-          {data.recientes.length === 0 ? (
+          {recientes.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              Aun no has postulado contactos. Explora ofertas para empezar a ganar comisiones.
+              Aun no has postulado. Explora ofertas para empezar.
             </p>
           ) : (
-            data.recientes.map((p) => {
-              const oferta = ofertas.find((o) => o.id === p.ofertaId);
+            recientes.map((bid) => {
+              const meta = BID_STATUS_LABEL[bid.status] ?? BID_STATUS_LABEL.pending;
               return (
-                <div key={p.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                <div key={bid.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{p.contacto.nombre}</p>
-                    <p className="truncate text-xs text-muted-foreground">{oferta?.titulo ?? "—"}</p>
+                    <p className="truncate text-sm font-medium text-foreground">{bid.proposal.title}</p>
+                    <p className="text-xs text-muted-foreground">{bid.contactCount} contacto(s)</p>
                   </div>
-                  <EstadoPostulacionBadge estado={p.estado} />
-                  <span className="hidden w-24 text-right text-xs text-muted-foreground sm:block">
-                    {formatRelative(p.fechaPostulacion)}
+                  <Badge className={meta.className}>{meta.label}</Badge>
+                  <span className="hidden w-20 text-right text-xs text-muted-foreground sm:block">
+                    {formatRelative(bid.createdAt)}
                   </span>
                 </div>
               );
@@ -192,25 +171,38 @@ export default function LeadDashboardPage() {
         </CardContent>
       </Card>
 
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Ofertas recomendadas</h2>
-          <Link href="/lead/ofertas" className="text-sm font-medium text-primary hover:underline">
-            Ver todas
-          </Link>
+      {/* Ofertas recomendadas */}
+      {!loadingMarket && recomendadas.length > 0 && (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Ofertas disponibles</h2>
+            <Link href="/lead/ofertas" className="text-sm font-medium text-primary hover:underline">
+              Ver todas
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {recomendadas.map((p) => (
+              <Card key={p.id} className="flex flex-col gap-3 p-4">
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground line-clamp-2">{p.title}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{p.company.legalName}</p>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{p.bidCount} postulaciones</span>
+                  {p.pricePerContact && (
+                    <span className="font-semibold text-emerald-600">
+                      ${p.pricePerContact.toLocaleString("es-CL")} / contacto
+                    </span>
+                  )}
+                </div>
+                <Link href="/lead/ofertas">
+                  <Button size="sm" className="border text-muted-foreground w-full">Ver oferta</Button>
+                </Link>
+              </Card>
+            ))}
+          </div>
         </div>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {recomendadas.map((oferta) => (
-            <OfertaCard
-              key={oferta.id}
-              oferta={oferta}
-              empresa={empresaById.get(oferta.empresaId)}
-              postulaciones={conteo.get(oferta.id) ?? 0}
-              href="/lead/ofertas"
-            />
-          ))}
-        </div>
-      </div>
+      )}
     </>
   );
 }

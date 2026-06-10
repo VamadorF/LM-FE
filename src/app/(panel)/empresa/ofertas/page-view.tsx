@@ -1,108 +1,118 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
-import { Plus, Pencil, Users, ArrowRight } from "lucide-react";
-import { useStore, useHydrated } from "@/lib/store";
-import { useEmpresaActiva } from "@/lib/identidad";
-import { conteoPorOferta, ofertasDeEmpresa } from "@/lib/selectors";
-import { comisionLabel, type Oferta } from "@/lib/types";
-import { formatCompactCLP, formatNumber } from "@/lib/format";
+import { useState } from "react";
+import { Plus, Eye, Pencil } from "lucide-react";
+import { useMyProposals, useUpdateProposalStatus } from "@/lib/api/proposals";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { EstadoOfertaBadge } from "@/components/ui/market-badges";
-import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { OfertaForm } from "@/components/ofertas/oferta-form";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ProposalForm } from "@/components/ofertas/proposal-form";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import type { Proposal, ProposalStatus } from "@/lib/api/proposals";
+import { useRouter } from "next/navigation";
+
+const STATUS_LABEL: Record<ProposalStatus, string> = {
+  open: "Activa",
+  paused: "Pausada",
+  closed: "Cerrada",
+  completed: "Completada",
+  expired: "Expirada",
+};
+
+const STATUS_COLOR: Record<ProposalStatus, string> = {
+  open: "bg-emerald-100 text-emerald-700",
+  paused: "bg-amber-100 text-amber-700",
+  closed: "bg-slate-100 text-slate-600",
+  completed: "bg-sky-100 text-sky-700",
+  expired: "bg-red-100 text-red-600",
+};
 
 export default function EmpresaOfertasPage() {
-  const hydrated = useHydrated();
-  const empresa = useEmpresaActiva();
-  const ofertas = useStore((s) => s.ofertas);
-  const postulaciones = useStore((s) => s.postulaciones);
-
-  const conteo = useMemo(() => conteoPorOferta(postulaciones), [postulaciones]);
-  const propias = useMemo(
-    () => (empresa ? ofertasDeEmpresa(ofertas, empresa.id) : []),
-    [ofertas, empresa],
-  );
-
+  const router = useRouter();
+  const { data: proposals = [], isLoading } = useMyProposals();
   const [formOpen, setFormOpen] = useState(false);
-  const [editando, setEditando] = useState<Oferta | undefined>(undefined);
+  const [editing, setEditing] = useState<Proposal | null>(null);
+  const statusMut = useUpdateProposalStatus("");
 
-  const abrirNueva = () => {
-    setEditando(undefined);
-    setFormOpen(true);
-  };
-  const abrirEditar = (o: Oferta) => {
-    setEditando(o);
-    setFormOpen(true);
-  };
+  const openCreate = () => { setEditing(null); setFormOpen(true); };
+  const openEdit = (p: Proposal) => { setEditing(p); setFormOpen(true); };
 
   return (
     <>
-      <PageHeader title="Mis ofertas" description="Publica y administra tus campanas de referidos">
-        <Button onClick={abrirNueva}>
-          <Plus /> Nueva oferta
-        </Button>
+      <PageHeader title="Mis Propuestas" description="Gestiona las ofertas que has publicado">
+        <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" />Nueva propuesta</Button>
       </PageHeader>
 
-      {!hydrated ? (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-52" />
-          ))}
-        </div>
-      ) : propias.length === 0 ? (
+      <ProposalForm
+        open={formOpen}
+        onOpenChange={(v) => { setFormOpen(v); if (!v) setEditing(null); }}
+        proposal={editing ?? undefined}
+      />
+
+      {isLoading ? (
+        <Skeleton className="h-64" />
+      ) : proposals.length === 0 ? (
         <EmptyState
           icon={Plus}
-          title="Aun no tienes ofertas"
-          description="Publica tu primera campana para empezar a recibir postulaciones de conectores."
-          action={<Button onClick={abrirNueva}>Crear oferta</Button>}
+          title="Sin propuestas"
+          description="Crea tu primera propuesta para comenzar a recibir bids."
+          action={<Button onClick={openCreate}>Crear propuesta</Button>}
         />
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {propias.map((o) => (
-            <Card key={o.id} className="flex h-full flex-col">
-              <CardContent className="flex flex-1 flex-col gap-3 p-5">
-                <div className="flex items-center justify-between">
-                  <Badge className="border-accent bg-accent/60 text-accent-foreground">{o.categoria}</Badge>
-                  <EstadoOfertaBadge estado={o.estado} />
-                </div>
-                <Link href={`/empresa/ofertas/${o.id}`}>
-                  <h3 className="font-semibold leading-snug text-foreground hover:text-primary">{o.titulo}</h3>
-                </Link>
-                <p className="line-clamp-2 text-sm text-muted-foreground">{o.descripcion}</p>
-                <div className="mt-auto space-y-3 border-t pt-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-emerald-700">{comisionLabel(o)}</span>
-                    <span className="inline-flex items-center gap-1 text-muted-foreground">
-                      <Users className="size-3.5" /> {formatNumber(conteo.get(o.id) ?? 0)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Meta {formatNumber(o.objetivoContactos)} - Ticket {formatCompactCLP(o.valorTicketEstimado)}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => abrirEditar(o)}>
-                      <Pencil /> Editar
-                    </Button>
-                    <Link href={`/empresa/ofertas/${o.id}`} className="flex-1">
-                      <Button size="sm" className="w-full">
-                        Bandeja <ArrowRight />
+        <div className="overflow-x-auto rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Título</TableHead>
+                <TableHead className="hidden sm:table-cell">Estado</TableHead>
+                <TableHead className="hidden md:table-cell">Contactos</TableHead>
+                <TableHead className="hidden md:table-cell">Precio/c.</TableHead>
+                <TableHead>Bids</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {proposals.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell
+                    className="font-medium cursor-pointer hover:text-primary"
+                    onClick={() => router.push(`/empresa/ofertas/${p.id}`)}
+                  >
+                    {p.title}
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    <Badge className={STATUS_COLOR[p.status]}>{STATUS_LABEL[p.status]}</Badge>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">{p.contactsNeeded}</TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {p.pricePerContact ? `$${p.pricePerContact.toLocaleString("es-CL")}` : "—"}
+                  </TableCell>
+                  <TableCell>{p.bidCount}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon"
+                        onClick={() => router.push(`/empresa/ofertas/${p.id}`)}>
+                        <Eye className="h-4 w-4" />
                       </Button>
-                    </Link>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      {p.status === "open" && (
+                        <Button variant="ghost" size="sm"
+                          onClick={() => useUpdateProposalStatus(p.id)}>
+                          Pausar
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
-
-      <OfertaForm open={formOpen} onOpenChange={setFormOpen} oferta={editando} />
     </>
   );
 }

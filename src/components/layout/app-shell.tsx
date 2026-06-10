@@ -2,12 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { useIdentidadSync } from "@/lib/identidad";
 import { Sidebar, SidebarContent } from "./sidebar";
 import { Topbar } from "./topbar";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  useIdentidadSync();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {

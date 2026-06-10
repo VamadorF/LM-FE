@@ -1,133 +1,103 @@
 "use client";
 
-import { useMemo } from "react";
-import { Wallet, Clock, CheckCircle2 } from "lucide-react";
-import { useStore, useHydrated } from "@/lib/store";
-import { useEmpresaActiva } from "@/lib/identidad";
-import { comisionesPorMes, ofertasDeEmpresa } from "@/lib/selectors";
-import { calcularComision } from "@/lib/types";
-import { formatCLP, formatDate, formatNumber } from "@/lib/format";
+import { useMemo, useState } from "react";
+import { DollarSign, TrendingUp, Users } from "lucide-react";
+import { useMyProposals } from "@/lib/api/proposals";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { KpiCard } from "@/components/dashboard/kpi-card";
-import { IngresosChart } from "@/components/dashboard/charts";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { CardsSkeleton, Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
+import { formatRelative } from "@/lib/format";
 
 export default function EmpresaComisionesPage() {
-  const hydrated = useHydrated();
-  const empresa = useEmpresaActiva();
-  const ofertas = useStore((s) => s.ofertas);
-  const postulaciones = useStore((s) => s.postulaciones);
-  const leads = useStore((s) => s.leads);
+  const { data: proposals = [], isLoading: loadProps } = useMyProposals();
+  const [filterProposal, setFilterProposal] = useState("all");
 
-  const ofertaById = useMemo(() => new Map(ofertas.map((o) => [o.id, o])), [ofertas]);
-  const leadById = useMemo(() => new Map(leads.map((l) => [l.id, l.nombre])), [leads]);
+  const stats = useMemo(() => {
+    const filtered = filterProposal === "all"
+      ? proposals
+      : proposals.filter((p) => p.id === filterProposal);
+    const active    = filtered.filter((p) => p.status === "open").length;
+    const completed = filtered.filter((p) => p.status === "completed").length;
+    const totalBids = filtered.reduce((acc, p) => acc + p.bidCount, 0);
+    return { active, completed, totalBids };
+  }, [proposals, filterProposal]);
 
-  const data = useMemo(() => {
-    if (!empresa) return null;
-    const ids = new Set(ofertasDeEmpresa(ofertas, empresa.id).map((o) => o.id));
-    const ps = postulaciones.filter((p) => ids.has(p.ofertaId));
-    const pagadas = ps
-      .filter((p) => p.estado === "completada")
-      .sort((a, b) => new Date(b.fechaActualizacion).getTime() - new Date(a.fechaActualizacion).getTime());
-    const totalPagado = pagadas.reduce((s, p) => s + (p.comision ?? 0), 0);
-    let porPagar = 0;
-    for (const p of ps) {
-      if (p.estado === "seleccionada" || p.estado === "en_negociacion") {
-        const o = ofertaById.get(p.ofertaId);
-        if (o) porPagar += calcularComision(o, o.valorTicketEstimado);
-      }
-    }
-    return {
-      pagadas,
-      totalPagado,
-      porPagar,
-      serie: comisionesPorMes(ps, 6).map((m) => ({ mes: m.mes, ingresos: m.comisiones })),
-    };
-  }, [empresa, ofertas, postulaciones, ofertaById]);
-
-  if (!hydrated || !data) {
-    return (
-      <>
-        <PageHeader title="Comisiones" description="Comisiones pagadas y proyectadas a tus conectores" />
-        <CardsSkeleton count={3} />
-        <Skeleton className="h-72" />
-      </>
-    );
-  }
+  const filtered = filterProposal === "all"
+    ? proposals
+    : proposals.filter((p) => p.id === filterProposal);
 
   return (
     <>
-      <PageHeader title="Comisiones" description="Comisiones pagadas y proyectadas a tus conectores" />
+      <PageHeader title="Comisiones" description="Resumen de inversión por propuesta" />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <KpiCard icon={Wallet} label="Total pagado" value={formatCLP(data.totalPagado)} accent="text-emerald-600" />
-        <KpiCard icon={Clock} label="Proyeccion por pagar" value={formatCLP(data.porPagar)} hint="Seleccionadas y en negociacion" accent="text-amber-600" />
-        <KpiCard icon={CheckCircle2} label="Transacciones" value={formatNumber(data.pagadas.length)} accent="text-sky-600" />
+      <div className="flex gap-3 mb-4">
+        <Select
+          value={filterProposal}
+          onChange={(e) => setFilterProposal(e.target.value)}
+          className="w-64"
+        >
+          <option value="all">Todas</option>
+          {proposals.map((p) => (
+            <option key={p.id} value={p.id}>{p.title}</option>
+          ))}
+        </Select>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Comisiones pagadas por mes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <IngresosChart data={data.serie} />
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 sm:grid-cols-3 mb-4">
+        <KpiCard icon={TrendingUp} label="Propuestas activas"     value={String(stats.active)}    accent="text-emerald-600" />
+        <KpiCard icon={Users}      label="Total de bids"          value={String(stats.totalBids)} accent="text-sky-600" />
+        <KpiCard icon={DollarSign} label="Propuestas completadas" value={String(stats.completed)} accent="text-violet-600" />
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Detalle de comisiones pagadas</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {data.pagadas.length === 0 ? (
-            <EmptyState
-              icon={Wallet}
-              title="Sin comisiones pagadas"
-              description="Cuando completes transacciones, veras aqui las comisiones pagadas."
-              className="m-4"
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Contacto</TableHead>
-                  <TableHead>Conector</TableHead>
-                  <TableHead className="text-right">Transaccion</TableHead>
-                  <TableHead className="text-right">Comision</TableHead>
-                  <TableHead>Fecha</TableHead>
+      {loadProps ? (
+        <Skeleton className="h-64" />
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={DollarSign} title="Sin datos" description="No hay propuestas que mostrar." />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Propuesta</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="hidden sm:table-cell">Contactos requeridos</TableHead>
+                <TableHead className="hidden sm:table-cell">Precio/c.</TableHead>
+                <TableHead>Bids</TableHead>
+                <TableHead className="hidden md:table-cell">Creada</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell className="font-medium">{p.title}</TableCell>
+                  <TableCell>
+                    <Badge className={
+                      p.status === "open"      ? "bg-emerald-100 text-emerald-700" :
+                      p.status === "completed" ? "bg-sky-100 text-sky-700" :
+                      p.status === "expired"   ? "bg-red-100 text-red-600" :
+                      "bg-slate-100 text-slate-600"
+                    }>
+                      {p.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">{p.contactsNeeded}</TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {p.pricePerContact ? `$${p.pricePerContact.toLocaleString("es-CL")}` : "—"}
+                  </TableCell>
+                  <TableCell>{p.bidCount}</TableCell>
+                  <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
+                    {formatRelative(p.createdAt)}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.pagadas.slice(0, 100).map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.contacto.nombre}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{leadById.get(p.leadId) ?? "—"}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {formatCLP(p.valorTransaccion ?? 0)}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums text-emerald-700">
-                      {formatCLP(p.comision ?? 0)}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatDate(p.fechaActualizacion)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </>
   );
 }

@@ -1,141 +1,104 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Search, Coins, MapPin, Users } from "lucide-react";
-import { useStore, useHydrated } from "@/lib/store";
-import { useDebounced } from "@/lib/hooks";
-import { conteoPorOferta } from "@/lib/selectors";
-import { filtrarOrdenar } from "@/lib/query";
-import { CATEGORIAS, comisionLabel, type Oferta } from "@/lib/types";
-import { formatCompactCLP } from "@/lib/format";
+import { useState } from "react";
+import { Compass } from "lucide-react";
+import { useProposals } from "@/lib/api/proposals";
 import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar } from "@/components/ui/avatar";
-import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PostularDialog } from "@/components/ofertas/postular-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { BidDialog } from "@/components/ofertas/bid-dialog";
+import type { Proposal } from "@/lib/api/proposals";
 
 export default function LeadOfertasPage() {
-  const hydrated = useHydrated();
-  const ofertas = useStore((s) => s.ofertas);
-  const empresas = useStore((s) => s.empresas);
-  const postulaciones = useStore((s) => s.postulaciones);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<Proposal | null>(null);
+  const PAGE_SIZE = 12;
 
-  const empresaById = useMemo(() => new Map(empresas.map((e) => [e.id, e])), [empresas]);
-  const conteo = useMemo(() => conteoPorOferta(postulaciones), [postulaciones]);
+  const { data, isLoading } = useProposals({ page, pageSize: PAGE_SIZE });
+  const proposals = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const pageCount = Math.ceil(total / PAGE_SIZE);
 
-  const [searchRaw, setSearchRaw] = useState("");
-  const search = useDebounced(searchRaw, 200);
-  const [categoria, setCategoria] = useState("");
-  const [seleccionada, setSeleccionada] = useState<Oferta | null>(null);
-
-  const activas = useMemo(() => ofertas.filter((o) => o.estado === "activa"), [ofertas]);
-
-  const resultado = useMemo(
-    () =>
-      filtrarOrdenar(activas, {
-        search,
-        getSearchText: (o) =>
-          `${o.titulo} ${o.categoria} ${empresaById.get(o.empresaId)?.nombre ?? ""}`,
-        filters: categoria ? [(o) => o.categoria === categoria] : [],
-        sort: (a, b) => (conteo.get(b.id) ?? 0) - (conteo.get(a.id) ?? 0),
-      }),
-    [activas, search, categoria, conteo, empresaById],
-  );
+  const filtered = search.trim()
+    ? proposals.filter((p) =>
+        p.title.toLowerCase().includes(search.toLowerCase()) ||
+        p.company.legalName.toLowerCase().includes(search.toLowerCase())
+      )
+    : proposals;
 
   return (
     <>
-      <PageHeader title="Explorar ofertas" description="Postula contactos de tu red y gana comisiones" />
+      <PageHeader title="Explorar ofertas" description={`${total} propuesta(s) disponibles`} />
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchRaw}
-            onChange={(e) => setSearchRaw(e.target.value)}
-            placeholder="Buscar oferta o empresa..."
-            className="pl-9"
-          />
-        </div>
-        <Select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="lg:w-56">
-          <option value="">Todas las categorias</option>
-          {CATEGORIAS.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </Select>
-      </div>
+      <Input
+        className="max-w-sm"
+        placeholder="Buscar por titulo o empresa..."
+        value={search}
+        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+      />
 
-      {!hydrated ? (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-56" />
+            <Skeleton key={i} className="h-48" />
           ))}
         </div>
-      ) : resultado.length === 0 ? (
-        <EmptyState icon={Search} title="No hay ofertas" description="Ajusta los filtros para ver mas oportunidades." />
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={Compass} title="Sin propuestas" description="No hay propuestas disponibles en este momento." />
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {resultado.map((oferta) => {
-            const empresa = empresaById.get(oferta.empresaId);
-            return (
-              <Card key={oferta.id} className="flex h-full flex-col">
-                <CardContent className="flex flex-1 flex-col gap-3 p-5">
-                  <div className="flex items-center justify-between">
-                    <Badge className="border-accent bg-accent/60 text-accent-foreground">
-                      {oferta.categoria}
-                    </Badge>
-                    {oferta.destacada ? (
-                      <Badge className="border-amber-200 bg-amber-100 text-amber-700">Destacada</Badge>
-                    ) : null}
-                  </div>
-                  <h3 className="font-semibold leading-snug text-foreground">{oferta.titulo}</h3>
-                  {empresa ? (
-                    <div className="flex items-center gap-2">
-                      <Avatar name={empresa.nombre} className="size-6 text-[10px]" />
-                      <span className="text-sm text-muted-foreground">{empresa.nombre}</span>
-                    </div>
-                  ) : null}
-                  <div className="mt-auto space-y-2 border-t pt-3">
-                    <p className="flex items-center gap-2 text-sm font-medium text-emerald-700">
-                      <Coins className="size-4" /> Comision {comisionLabel(oferta)}
-                      {oferta.tipoComision === "porcentaje" ? (
-                        <span className="font-normal text-muted-foreground">
-                          ~{formatCompactCLP(oferta.valorTicketEstimado)}
-                        </span>
-                      ) : null}
-                    </p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        <MapPin className="size-3.5" /> {oferta.region}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <Users className="size-3.5" /> {(conteo.get(oferta.id) ?? 0).toLocaleString("es-CL")}
-                      </span>
-                    </div>
-                    <Button className="w-full" size="sm" onClick={() => setSeleccionada(oferta)}>
-                      Postular contactos
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((p) => (
+            <Card key={p.id} className="flex flex-col gap-3 p-4">
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold text-foreground line-clamp-2">{p.title}</p>
+                  <Badge className="bg-secondary text-secondary-foreground shrink-0">Abierta</Badge>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">{p.company.legalName}</p>
+              </div>
+              <p className="text-sm text-muted-foreground line-clamp-3">{p.description}</p>
+              <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
+                <span>{p.contactsNeeded} contactos buscados</span>
+                <span>{p.bidCount} postulaciones</span>
+                {p.pricePerContact && (
+                  <span className="col-span-2 font-semibold text-emerald-600">
+                    ${p.pricePerContact.toLocaleString("es-CL")} / contacto
+                  </span>
+                )}
+                {p.locationCity && <span>{p.locationCity}{p.locationCountry ? `, ${p.locationCountry}` : ""}</span>}
+              </div>
+              <Button size="sm" className="mt-auto w-full" onClick={() => setSelected(p)}>
+                Postular
+              </Button>
+            </Card>
+          ))}
         </div>
       )}
 
-      {seleccionada ? (
-        <PostularDialog
-          open={Boolean(seleccionada)}
-          onOpenChange={(v) => !v && setSeleccionada(null)}
-          oferta={seleccionada}
+      {pageCount > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button className="border text-muted-foreground" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+            Anterior
+          </Button>
+          <span className="text-sm text-muted-foreground">Pagina {page} de {pageCount}</span>
+          <Button className="border text-muted-foreground" size="sm" disabled={page === pageCount} onClick={() => setPage((p) => p + 1)}>
+            Siguiente
+          </Button>
+        </div>
+      )}
+
+      {selected && (
+        <BidDialog
+          proposal={selected}
+          open={!!selected}
+          onOpenChange={(v) => { if (!v) setSelected(null); }}
         />
-      ) : null}
+      )}
     </>
   );
 }

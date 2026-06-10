@@ -1,93 +1,80 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Trophy } from "lucide-react";
-import { useStore, useHydrated } from "@/lib/store";
-import { useLeadActivo } from "@/lib/identidad";
-import { rankingLeads } from "@/lib/selectors";
-import { formatCLP, formatNumber } from "@/lib/format";
+import { useMemo } from "react";
+import { Trophy, Star, TrendingUp } from "lucide-react";
+import { useMyBids } from "@/lib/api/bids";
+import { useAuthStore } from "@/lib/auth-store";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select } from "@/components/ui/select";
-import { Leaderboard } from "@/components/ranking/leaderboard";
+import { KpiCard } from "@/components/dashboard/kpi-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 export default function LeadRankingPage() {
-  const hydrated = useHydrated();
-  const lead = useLeadActivo();
-  const postulaciones = useStore((s) => s.postulaciones);
-  const ofertas = useStore((s) => s.ofertas);
-  const leads = useStore((s) => s.leads);
+  const { user } = useAuthStore();
+  const { data: bids = [], isLoading } = useMyBids();
 
-  const [ofertaId, setOfertaId] = useState("");
+  const stats = useMemo(() => {
+    const completed = bids.filter((b) => b.status === "completed");
+    const accepted  = bids.filter((b) => b.status === "accepted");
+    const total     = bids.length;
+    const tasa      = total > 0 ? Math.round((completed.length / total) * 100) : 0;
+    return { completed: completed.length, accepted: accepted.length, total, tasa };
+  }, [bids]);
 
-  const filas = useMemo(
-    () => rankingLeads(postulaciones, leads, ofertaId ? { ofertaId } : undefined),
-    [postulaciones, leads, ofertaId],
-  );
+  const lm = user?.leadManager;
+  const rating = lm?.avgRating ?? 0;
 
-  const miPosicion = useMemo(
-    () => (lead ? filas.findIndex((f) => f.lead.id === lead.id) + 1 : 0),
-    [filas, lead],
-  );
-  const miFila = lead ? filas.find((f) => f.lead.id === lead.id) : undefined;
+  const ratingStars = (n: number) =>
+    Array.from({ length: 5 }).map((_, i) => (
+      <Star
+        key={i}
+        className={`h-5 w-5 ${i < Math.round(n) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
+      />
+    ));
 
-  if (!hydrated) {
-    return (
-      <>
-        <PageHeader title="Ranking de conectores" description="Compite y sube posiciones cerrando negocios" />
-        <Skeleton className="h-96" />
-      </>
-    );
-  }
+  const nivel = rating >= 4.5 ? "Élite" : rating >= 3.5 ? "Avanzado" : rating >= 2.5 ? "Intermedio" : "Principiante";
+  const nivelColor = rating >= 4.5 ? "bg-amber-100 text-amber-700" : rating >= 3.5 ? "bg-sky-100 text-sky-700" : rating >= 2.5 ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600";
 
   return (
     <>
-      <PageHeader title="Ranking de conectores" description="Compite y sube posiciones cerrando negocios">
-        <Select value={ofertaId} onChange={(e) => setOfertaId(e.target.value)} className="w-64">
-          <option value="">Ranking global</option>
-          {ofertas.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.titulo}
-            </option>
-          ))}
-        </Select>
-      </PageHeader>
+      <PageHeader title="Mi Ranking" description="Estadísticas de desempeño y reputación" />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <span className="flex size-12 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
-              <Trophy className="size-6" />
-            </span>
-            <div>
-              <p className="text-2xl font-bold">{miPosicion > 0 ? `#${miPosicion}` : "-"}</p>
-              <p className="text-sm text-muted-foreground">Tu posicion</p>
+      {isLoading ? (
+        <Skeleton className="h-64" />
+      ) : (
+        <>
+          <div className="rounded-xl border p-6 mb-4 flex flex-col sm:flex-row items-center gap-6">
+            <div className="flex-1 text-center sm:text-left">
+              <p className="text-sm text-muted-foreground mb-1">Rating promedio</p>
+              <div className="flex items-center gap-2 justify-center sm:justify-start mb-2">
+                {ratingStars(rating)}
+                <span className="font-bold text-2xl">{rating.toFixed(1)}</span>
+              </div>
+              <Badge className={nivelColor}>{nivel}</Badge>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <p className="text-2xl font-bold text-emerald-700">{formatCLP(miFila?.comisiones ?? 0)}</p>
-            <p className="text-sm text-muted-foreground">Tus comisiones</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <p className="text-2xl font-bold">{formatNumber(miFila?.completadas ?? 0)}</p>
-            <p className="text-sm text-muted-foreground">Negocios cerrados</p>
-          </CardContent>
-        </Card>
-      </div>
+            <div className="text-center">
+              <Trophy className="h-14 w-14 text-amber-400 mx-auto" />
+              <p className="text-xs text-muted-foreground mt-1">Nivel actual</p>
+            </div>
+          </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{ofertaId ? "Ranking de la oferta" : "Ranking global"}</CardTitle>
-        </CardHeader>
-        <CardContent className="p-3">
-          <Leaderboard filas={filas.slice(0, 50)} destacarId={lead?.id} />
-        </CardContent>
-      </Card>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <KpiCard icon={TrendingUp} label="Bids completados" value={String(stats.completed)} accent="text-emerald-600" />
+            <KpiCard icon={TrendingUp} label="Bids en proceso"  value={String(stats.accepted)}  accent="text-sky-600" />
+            <KpiCard icon={TrendingUp} label="Tasa de éxito"    value={`${stats.tasa}%`}         accent="text-violet-600" />
+          </div>
+
+          <div className="rounded-xl border p-5 mt-2 space-y-3">
+            <h3 className="font-semibold">¿Cómo subir de nivel?</h3>
+            <ul className="text-sm text-muted-foreground space-y-1.5">
+              <li>• Completa más bids para aumentar tu tasa de éxito.</li>
+              <li>• Ofrece contactos de alta calidad — las empresas valoran la relevancia.</li>
+              <li>• Responde rápido a las propuestas para que te elijan primero.</li>
+              <li>• Pide a las empresas que dejen reseñas tras completar.</li>
+            </ul>
+          </div>
+        </>
+      )}
     </>
   );
 }

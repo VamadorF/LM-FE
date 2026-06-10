@@ -1,124 +1,90 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ListChecks, Plus, Pencil, Trash2, Folder } from "lucide-react";
-import { useStore, useHydrated } from "@/lib/store";
-import { useLeadActivo } from "@/lib/identidad";
-import { listasDelLead, conteoContactosPorLista } from "@/lib/selectors";
-import { formatNumber } from "@/lib/format";
-import type { Lista } from "@/lib/types";
+import { useState } from "react";
+import Link from "next/link";
+import { ListChecks, Plus, Pencil, Trash2 } from "lucide-react";
+import { useContactBooks, useDeleteContactBook, type ContactBook } from "@/lib/api/contact-books";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { CardsSkeleton } from "@/components/ui/skeleton";
-import { ListaForm } from "@/components/listas/lista-form";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { FolderItem } from "@/components/contactos/folder-item";
-import { AgendaListasTip } from "@/components/onboarding/agenda-listas-tip";
+import { ListaForm } from "@/components/listas/lista-form";
 
 export default function LeadListasPage() {
-  const router = useRouter();
-  const hydrated = useHydrated();
-  const lead = useLeadActivo();
-  const listas = useStore((s) => s.listas);
-  const eliminarLista = useStore((s) => s.eliminarLista);
-
-  const misListas = useMemo(
-    () => (lead ? listasDelLead(listas, lead.id) : []),
-    [listas, lead],
-  );
-  const conteo = useMemo(() => conteoContactosPorLista(listas), [listas]);
+  const { data: books = [], isLoading } = useContactBooks();
+  const deleteMut = useDeleteContactBook();
 
   const [crear, setCrear] = useState(false);
-  const [editando, setEditando] = useState<Lista | null>(null);
-  const [eliminando, setEliminando] = useState<Lista | null>(null);
+  const [editando, setEditando] = useState<ContactBook | null>(null);
+  const [eliminando, setEliminando] = useState<ContactBook | null>(null);
 
   return (
     <>
-      <PageHeader
-        title="Listas"
-        description="Tus carpetas de contactos: agrupa personas de la agenda para postularlas juntas"
-      >
+      <PageHeader title="Mis listas" description={`${books.length} lista(s)`}>
         <Button onClick={() => setCrear(true)}>
-          <Plus /> Nueva carpeta
+          <Plus /> Nueva lista
         </Button>
       </PageHeader>
 
-      <AgendaListasTip />
-
-      {!hydrated ? (
-        <CardsSkeleton />
-      ) : misListas.length === 0 ? (
+      {isLoading ? (
+        <Skeleton className="h-48" />
+      ) : books.length === 0 ? (
         <EmptyState
           icon={ListChecks}
-          title="Aun no tienes carpetas"
-          description="Crea una lista (carpeta) y agrega contactos desde tu agenda para postularlos en bloque."
-          action={
-            <Button onClick={() => setCrear(true)}>
-              <Plus /> Crear carpeta
-            </Button>
-          }
+          title="Sin listas"
+          description="Crea tu primera lista para agrupar contactos por categoria."
+          action={<Button size="sm" onClick={() => setCrear(true)}>Crear lista</Button>}
         />
       ) : (
-        <div className="rounded-xl border bg-card/50 p-6">
-          <p className="mb-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {misListas.length} carpetas
-          </p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {misListas.map((lista) => (
-              <div
-                key={lista.id}
-                className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm"
-              >
-                <FolderItem
-                  icon={Folder}
-                  label={lista.nombre}
-                  subtitle={`${formatNumber(conteo.get(lista.id) ?? 0)} contactos`}
-                  onOpen={() => router.push(`/lead/listas/${lista.id}`)}
-                  className="border-0"
-                />
-                <div className="flex border-t">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-9 flex-1 rounded-none"
-                    onClick={() => setEditando(lista)}
-                  >
-                    <Pencil className="size-3.5" /> Editar
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {books.map((book) => (
+            <Card key={book.id} className="flex flex-col gap-3 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-semibold text-foreground truncate">{book.name}</p>
+                  {book.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{book.description}</p>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button size="icon" variant="ghost" onClick={() => setEditando(book)}>
+                    <Pencil className="size-4" />
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-9 flex-1 rounded-none text-destructive hover:text-destructive"
-                    onClick={() => setEliminando(lista)}
-                  >
-                    <Trash2 className="size-3.5" /> Eliminar
+                  <Button size="icon" variant="ghost" onClick={() => setEliminando(book)}
+                    className="text-destructive hover:text-destructive">
+                    <Trash2 className="size-4" />
                   </Button>
                 </div>
               </div>
-            ))}
-          </div>
+              <Link href={`/lead/listas/${book.id}`}>
+                <Button size="sm" variant="outline" className="w-full">
+                  Ver contactos
+                </Button>
+              </Link>
+            </Card>
+          ))}
         </div>
       )}
 
-      {crear ? <ListaForm open={crear} onOpenChange={setCrear} /> : null}
-      {editando ? (
+      <ListaForm open={crear} onOpenChange={setCrear} />
+      {editando && (
         <ListaForm
-          open={Boolean(editando)}
-          onOpenChange={(v) => !v && setEditando(null)}
-          lista={editando}
+          open={!!editando}
+          onOpenChange={(v) => { if (!v) setEditando(null); }}
+          book={editando}
         />
-      ) : null}
-      {eliminando ? (
-        <ConfirmDialog
-          open={Boolean(eliminando)}
-          onOpenChange={(v) => !v && setEliminando(null)}
-          title="Eliminar carpeta"
-          description={`Se eliminara la carpeta "${eliminando.nombre}". Tus contactos seguiran en la agenda. Esta accion no se puede deshacer.`}
-          onConfirm={() => eliminarLista(eliminando.id)}
-        />
-      ) : null}
+      )}
+      <ConfirmDialog
+        open={!!eliminando}
+        onOpenChange={(v) => { if (!v) setEliminando(null); }}
+        title="Eliminar lista"
+        description={`Eliminar la lista "${eliminando?.name}"? Esta accion no se puede deshacer.`}
+        onConfirm={() => {
+          if (eliminando) deleteMut.mutate(eliminando.id, { onSuccess: () => setEliminando(null) });
+        }}
+      />
     </>
   );
 }

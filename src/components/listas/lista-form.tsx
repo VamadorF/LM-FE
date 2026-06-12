@@ -51,11 +51,11 @@ export function ListaForm({
     },
   });
 
-  const onSubmit = (data: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     if (lista) {
-      actualizarLista(lista.id, data);
+      await actualizarLista(lista.id, data);
     } else {
-      const creada = crearLista({ ...data, leadId: lead.id });
+      const creada = await crearLista({ ...data, leadId: lead.id });
       onCreada?.(creada);
     }
     onOpenChange(false);

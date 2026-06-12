@@ -60,11 +60,11 @@ export function ContactoForm({
     },
   });
 
-  const onSubmit = (data: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     if (contacto) {
-      actualizarContacto(contacto.id, data);
+      await actualizarContacto(contacto.id, data);
     } else {
-      const creado = crearContacto({ ...data, leadId: lead.id });
+      const creado = await crearContacto({ ...data, leadId: lead.id });
       onCreado?.(creado);
     }
     onOpenChange(false);

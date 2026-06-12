@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useIdentidadSync } from "@/lib/identidad";
+import { ApiBootstrap } from "./api-bootstrap";
 import { Sidebar, SidebarContent } from "./sidebar";
 import { Topbar } from "./topbar";
 
@@ -26,6 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen overflow-x-clip bg-background">
+      <ApiBootstrap />
       <Sidebar />
 
       {mobileOpen ? (

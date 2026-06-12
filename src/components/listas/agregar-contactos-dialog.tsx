@@ -73,9 +73,9 @@ export function AgregarContactosDialog({
     });
   };
 
-  const onConfirmar = () => {
+  const onConfirmar = async () => {
     if (seleccion.size === 0) return;
-    agregarContactosALista(lista.id, [...seleccion]);
+    await agregarContactosALista(lista.id, [...seleccion]);
     setSeleccion(new Set());
     setSearchRaw("");
     onOpenChange(false);

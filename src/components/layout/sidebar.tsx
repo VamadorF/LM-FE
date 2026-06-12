@@ -48,7 +48,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
 
-      <div className="border-t border-sidebar-border p-3">
+      <div className="overflow-visible border-t border-sidebar-border p-3">
         <RoleSwitcher variant="dark" />
       </div>
     </div>

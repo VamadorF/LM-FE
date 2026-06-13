@@ -68,7 +68,7 @@ export function OfertaForm({
     },
   });
 
-  const onSubmit = (data: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     const payload = {
       ...data,
       valorComision: Number(data.valorComision),
@@ -77,9 +77,9 @@ export function OfertaForm({
       fechaCierre: new Date(data.fechaCierre).toISOString(),
     };
     if (oferta) {
-      actualizarOferta(oferta.id, payload);
+      await actualizarOferta(oferta.id, payload);
     } else {
-      crearOferta({
+      await crearOferta({
         ...payload,
         empresaId: empresa.id,
         destacada: false,

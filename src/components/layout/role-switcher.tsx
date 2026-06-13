@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Building2, UserRound, ChevronsUpDown, Check } from "lucide-react";
+import { setActiveApiRole } from "@/lib/api/client";
 import { useStore, useHydrated } from "@/lib/store";
 import type { Rol } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,9 @@ export function RoleSwitcher({ variant = "dark" }: { variant?: "dark" | "light" 
   const setRol = useStore((s) => s.setRol);
   const setEmpresaActiva = useStore((s) => s.setEmpresaActiva);
   const setLeadActivo = useStore((s) => s.setLeadActivo);
+  const apiConectado = useStore((s) => s.apiConectado);
+  const apiCargando = useStore((s) => s.apiCargando);
+  const apiError = useStore((s) => s.apiError);
 
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -46,6 +50,9 @@ export function RoleSwitcher({ variant = "dark" }: { variant?: "dark" | "light" 
 
   const cambiarRol = (rol: Rol) => {
     setRol(rol);
+    if (apiConectado) {
+      setActiveApiRole(rol === "empresa" ? "company" : "lead");
+    }
     const destino = ROLES.find((r) => r.value === rol)?.destino ?? "/lead";
     router.push(destino);
     setOpen(false);
@@ -86,13 +93,22 @@ export function RoleSwitcher({ variant = "dark" }: { variant?: "dark" | "light" 
       {open ? (
         <div
           className={cn(
-            "absolute left-0 right-0 z-50 mt-2 rounded-xl border bg-card p-2 text-foreground shadow-xl",
+            "absolute bottom-full left-0 right-0 z-50 mb-2 rounded-xl border bg-card p-2 text-foreground shadow-xl",
             dark ? "max-w-[calc(100vw-2rem)] min-w-0" : "min-w-[260px]",
           )}
         >
           <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Ver como
           </p>
+          {apiCargando ? (
+            <p className="px-2 pb-1 text-[10px] text-muted-foreground">Conectando API...</p>
+          ) : apiConectado ? (
+            <p className="px-2 pb-1 text-[10px] text-emerald-600">API conectada</p>
+          ) : apiError ? (
+            <p className="px-2 pb-1 text-[10px] text-amber-600" title={apiError}>
+              Modo mock
+            </p>
+          ) : null}
           <div className="grid grid-cols-2 gap-1">
             {ROLES.map((r) => (
               <button
